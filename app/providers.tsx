@@ -6,7 +6,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import posthog from "posthog-js";
 import { PostHogProvider as PHProvider } from "posthog-js/react";
 
-import { AnalyticsConsentBanner } from "@/components/ui/compositions/shared/AnalyticsConsentBanner";
+import { AnalyticsConsentToast } from "@/components/ui/compositions/shared/AnalyticsConsentToast";
 import { Toaster } from "@/components/ui/shadcn/sonner";
 import {
   AnalyticsConsentProvider,
@@ -76,7 +76,7 @@ export function Providers({ children }: { children: ReactNode }) {
     <AnalyticsConsentProvider>
       <PostHogProvider>
         {children}
-        <AnalyticsConsentBanner />
+        <AnalyticsConsentToast />
         <Toaster id="app-toaster" position="bottom-center" richColors closeButton />
       </PostHogProvider>
     </AnalyticsConsentProvider>
