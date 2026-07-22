@@ -1,4 +1,4 @@
-# Staging deploy on push to `dev` (and manual dispatch).
+# Staging deploy on push to `dev` only (no manual workflow_dispatch).
 # Lean pre-deploy gates: structure + ESLint only, then OpenNext build + wrangler.
 name: Deploy staging
 
@@ -6,7 +6,6 @@ on:
   push:
     branches:
       - dev
-  workflow_dispatch:
 
 permissions:
   contents: read

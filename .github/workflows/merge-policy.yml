@@ -1,0 +1,35 @@
+# Enforce promotion path: feature branches → dev → main.
+# Branch protection on main requires this check ("Merge policy / dev-only").
+name: Merge policy
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  dev-only:
+    name: dev-only
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Enforce dev-only merges to main
+        run: |
+          set -euo pipefail
+          if [[ -z "${GITHUB_HEAD_REF}" ]]; then
+            echo "::error::Missing head ref; cannot verify merge source."
+            exit 1
+          fi
+          if [[ "${GITHUB_HEAD_REF}" != "dev" ]]; then
+            echo "::error::Only the dev branch may be merged into main (got: ${GITHUB_HEAD_REF})."
+            exit 1
+          fi
+          head_repo="${{ github.event.pull_request.head.repo.full_name }}"
+          if [[ "${head_repo}" != "${GITHUB_REPOSITORY}" ]]; then
+            echo "::error::Merge source must be the canonical dev branch in ${GITHUB_REPOSITORY} (got fork: ${head_repo})."
+            exit 1
+          fi
+          echo "Merge policy satisfied (dev → main)"

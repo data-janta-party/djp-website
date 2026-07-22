@@ -1,4 +1,4 @@
-# Production deploy on push to `main` (and manual dispatch).
+# Production deploy on push to `main` only (no manual workflow_dispatch).
 # Full essential gates before build/deploy (scanners stay in ci-deep.yml).
 name: Deploy production
 
@@ -6,7 +6,6 @@ on:
   push:
     branches:
       - main
-  workflow_dispatch:
 
 permissions:
   contents: read
