@@ -6,7 +6,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import posthog from "posthog-js";
 import { PostHogProvider as PHProvider } from "posthog-js/react";
 
-import { AnalyticsConsentToast } from "@/components/ui/compositions/shared/AnalyticsConsentToast";
+import { AnalyticsConsentBanner } from "@/components/ui/compositions/shared/AnalyticsConsentBanner";
 import { Toaster } from "@/components/ui/shadcn/sonner";
 import {
   AnalyticsConsentProvider,
@@ -76,16 +76,8 @@ export function Providers({ children }: { children: ReactNode }) {
     <AnalyticsConsentProvider>
       <PostHogProvider>
         {children}
-        {/* Toaster must mount before AnalyticsConsentToast fires toast.custom */}
-        <Toaster
-          id="app-toaster"
-          position="bottom-center"
-          richColors
-          closeButton
-          // Above film chrome / sticky nav; Sonner defaults can sit under fixed UI.
-          style={{ zIndex: 100_000 }}
-        />
-        <AnalyticsConsentToast />
+        <AnalyticsConsentBanner />
+        <Toaster id="app-toaster" position="bottom-center" richColors closeButton />
       </PostHogProvider>
     </AnalyticsConsentProvider>
   );
