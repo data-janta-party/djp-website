@@ -1,0 +1,68 @@
+# Staging deploy on push to `dev` (and manual dispatch).
+# Lean pre-deploy gates: structure + ESLint only, then OpenNext build + wrangler.
+name: Deploy staging
+
+on:
+  push:
+    branches:
+      - dev
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-staging-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: staging
+
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Setup dependencies
+        uses: ./.github/actions/setup-deps
+
+      - name: Validate deployment contract
+        run: |
+          for key in CLOUDFLARE_ACCOUNT_ID; do
+            if [ -z "${!key}" ]; then
+              echo "Missing required variable: $key"
+              exit 1
+            fi
+          done
+          if [ -z "${CLOUDFLARE_API_TOKEN}" ]; then
+            echo "Missing required secret: CLOUDFLARE_API_TOKEN"
+            exit 1
+          fi
+
+      - name: ESLint gates
+        run: |
+          pnpm run lint:structure
+          pnpm run lint
+
+      - name: Build OpenNext bundle
+        run: pnpm run build:cloudflare:ci
+        env:
+          NODE_OPTIONS: --max-old-space-size=8192
+          CLOUDFLARE_WORKER_BUILD: "true"
+          CLOUDFLARE_WORKERS_DEPLOY: "1"
+
+      # Schema before code so new Worker code can rely on migrated tables.
+      - name: Apply D1 migrations (staging)
+        env:
+          WRANGLER_SEND_METRICS: "false"
+        run: pnpm run db:migrate:remote
+
+      - name: Deploy to Cloudflare Workers (staging)
+        env:
+          WRANGLER_SEND_METRICS: "false"
+        run: pnpm exec wrangler deploy --env=""

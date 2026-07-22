@@ -1,0 +1,14 @@
+name: data-janta-party-website
+paths-ignore:
+  - node_modules
+  - .next
+  - .next-e2e
+  - .open-next
+  - coverage
+  - test-results
+  - playwright-report
+  - storybook-static
+  - jscpd-report
+  - e2e
+  - .agents
+  - .grok

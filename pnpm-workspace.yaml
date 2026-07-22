@@ -1,0 +1,9 @@
+packages:
+  - .
+# Supply-chain hardening (pnpm ≥10.26 for blockExoticSubdeps; ≥10.21 trustPolicy; ≥10.16 minimumReleaseAge)
+blockExoticSubdeps: true
+minimumReleaseAge: 10080
+trustPolicy: no-downgrade
+ignoredBuiltDependencies:
+  - sharp
+  - unrs-resolver

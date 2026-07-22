@@ -1,0 +1,53 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    ".storybook/**/*.{ts,tsx}",
+    "components/ui/**/*.stories.tsx",
+    "scripts/**/*.{ts,mjs,js,sh}",
+    "e2e/test.ts",
+    "e2e/ui/**/*.ts",
+    "config/eslint-plugin-template-structure/**/*.mjs",
+    "config/template-eslint.mjs"
+  ],
+  "project": [
+    "app/**/*.{ts,tsx}",
+    "components/**/*.{ts,tsx}",
+    "lib/**/*.{ts,tsx}",
+    "actions/**/*.ts",
+    "hooks/**/*.{ts,tsx}",
+    "scripts/**/*.{ts,mjs,js}",
+    "config/**/*.{ts,mjs}",
+    "e2e/**/*.{ts,tsx}"
+  ],
+  "ignoreExportsUsedInFile": {
+    "interface": true,
+    "type": true
+  },
+  "tags": ["-public"],
+  "ignoreDependencies": [
+    "tailwindcss",
+    "tw-animate-css",
+    "estree",
+    "@typescript-eslint/types"
+  ],
+  "ignoreIssues": {
+    "lib/schemas/api/common.ts": ["exports", "types"],
+    "components/ui/shadcn/badge.tsx": ["exports"],
+    "components/ui/shadcn/button.tsx": ["exports"],
+    "components/ui/shadcn/select.tsx": ["exports"],
+    "components/ui/shadcn/input.tsx": ["exports"],
+    "components/ui/shadcn/label.tsx": ["exports"],
+    "components/ui/shadcn/textarea.tsx": ["exports"],
+    "components/ui/atoms/Select.tsx": ["exports"]
+  },
+  "vitest": {
+    "config": [
+      "config/vitest.config.ts",
+      "config/vitest.fast.config.ts",
+      "config/vitest.eslint.config.ts"
+    ]
+  },
+  "playwright": {
+    "config": ["config/playwright.config.ts"]
+  }
+}

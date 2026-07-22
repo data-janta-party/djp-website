@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+
+<html class="scroll-smooth" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>CivicPulse - Collaborative Governance for India</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&amp;family=Jetbrains+Mono:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        .animate-fade-in-up {
+            animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .stagger-1 { animation-delay: 0.1s; }
+        .stagger-2 { animation-delay: 0.2s; }
+        .stagger-3 { animation-delay: 0.3s; }
+        .stagger-4 { animation-delay: 0.4s; }
+        .stagger-5 { animation-delay: 0.5s; }
+        .stagger-6 { animation-delay: 0.6s; }
+
+        .hover-lift {
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease, border-color 0.3s ease;
+        }
+        /* Accessibility: lift on focus-within as well as hover */
+        .hover-lift:hover, .hover-lift:focus-within {
+            transform: translateY(-4px);
+            border-color: theme('colors.primary');
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+        }
+
+        .shimmer-btn {
+            position: relative;
+            overflow: hidden;
+        }
+        .shimmer-btn::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                90deg,
+                transparent,
+                rgba(255, 255, 255, 0.2),
+                transparent
+            );
+            transform: translateX(-100%);
+            transition: 0.5s;
+        }
+        .shimmer-btn:hover::after {
+            animation: shimmer 0.8s infinite;
+        }
+
+        .reveal-on-scroll {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 1s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .reveal-on-scroll.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Accessibility: Motion Control */
+        @media (prefers-reduced-motion: reduce) {
+            .animate-fade-in-up, .hover-lift, .shimmer-btn::after, .reveal-on-scroll {
+                animation: none !important;
+                transition: none !important;
+                transform: none !important;
+                opacity: 1 !important;
+            }
+            .shader-bg {
+                display: none !important;
+            }
+        }
+
+        /* Accessibility: Clear high-visibility focus ring */
+        :focus-visible {
+            outline: 2px solid theme('colors.primary') !important;
+            outline-offset: 2px !important;
+        }
+    </style>
+<script id="tailwind-config">
+    tailwind.config = {
+        darkMode: "class",
+        theme: {
+            extend: {
+                colors: {
+                    "tertiary-fixed-dim": "#464747",
+                    "on-secondary-container": "#1b1c1c",
+                    "surface-container": "#efeded",
+                    "inverse-surface": "#303031",
+                    "on-error": "#ffffff",
+                    "surface-container-lowest": "#ffffff",
+                    "on-primary-container": "#ffffff",
+                    "on-secondary": "#ffffff",
+                    "on-tertiary": "#e3e2e2",
+                    "surface-container-highest": "#e3e2e2",
+                    "inverse-primary": "#c7c6c6",
+                    "primary-container": "#3b3b3c",
+                    "on-primary": "#e3e2e2",
+                    "on-tertiary-fixed-variant": "#e3e2e2",
+                    surface: "#fbf9f9",
+                    "tertiary-fixed": "#5e5e5e",
+                    "on-error-container": "#410002",
+                    "on-secondary-fixed": "#1b1c1c",
+                    "surface-dim": "#dbdad9",
+                    secondary: "#5e5e5e",
+                    "secondary-container": "#d5d4d4",
+                    "tertiary-container": "#747474",
+                    "surface-container-high": "#e9e8e7",
+                    "surface-tint": "#5e5e5e",
+                    "surface-container-low": "#f5f3f3",
+                    error: "#ba1a1a",
+                    "surface-variant": "#e3e2e2",
+                    "on-primary-fixed": "#ffffff",
+                    "on-secondary-fixed-variant": "#3b3b3c",
+                    "inverse-on-surface": "#f2f0f0",
+                    "outline-variant": "#c6c6c6",
+                    tertiary: "#3b3b3c",
+                    "error-container": "#ffdad6",
+                    "on-tertiary-fixed": "#ffffff",
+                    "on-primary-fixed-variant": "#e3e2e2",
+                    "on-tertiary-container": "#ffffff",
+                    "surface-bright": "#fbf9f9",
+                    background: "#fbf9f9",
+                    primary: "#000000",
+                    "primary-fixed-dim": "#464747",
+                    "primary-fixed": "#5e5e5e",
+                    "secondary-fixed-dim": "#acabab",
+                    "on-background": "#1b1c1c",
+                    "on-surface-variant": "#474747", /* Contrast fix applied in structure */
+                    outline: "#777777",
+                    "on-surface": "#1b1c1c",
+                    "secondary-fixed": "#c7c6c6"
+                },
+                borderRadius: {
+                    DEFAULT: "0.25rem",
+                    lg: "0.5rem",
+                    xl: "0.75rem",
+                    full: "9999px"
+                },
+                spacing: {
+                    "padding-card": "24px",
+                    gutter: "24px",
+                    "margin-mobile": "16px",
+                    unit: "4px",
+                    "container-max": "1280px"
+                },
+                fontFamily: {
+                    headline: ["Inter"],
+                    display: ["Inter"],
+                    body: ["Inter"],
+                    label: ["Jetbrains Mono"]
+                },
+                fontSize: {
+                    "body-base": ["16px", {lineHeight: "1.6", letterSpacing: "0", fontWeight: "400"}],
+                    "body-sm": ["14px", {lineHeight: "1.5", letterSpacing: "0", fontWeight: "400"}],
+                    "display-lg-mobile": ["32px", {lineHeight: "1.2", letterSpacing: "-0.02em", fontWeight: "700"}],
+                    "display-lg": ["48px", {lineHeight: "1.1", letterSpacing: "-0.02em", fontWeight: "700"}],
+                    "headline-md": ["24px", {lineHeight: "1.3", letterSpacing: "-0.01em", fontWeight: "600"}],
+                    "label-mono": ["12px", {lineHeight: "1", letterSpacing: "0.05em", fontWeight: "500"}]
+                }
+            }
+        }
+    };
+    </script>
+</head>
+<body class="bg-background text-on-background font-body antialiased min-h-screen flex flex-col">
+<!-- Background Animation -->
+<div class="fixed inset-0 pointer-events-none z-[-1] opacity-30 shader-bg">
+    {{DATA:ANIMATION:ANIMATION_15}}
+</div>
+<!-- TopNavBar -->
+<nav class="bg-surface/80 backdrop-blur-md dark:bg-inverse-surface/80 border-b border-outline-variant dark:border-outline sticky top-0 z-50 transition-all duration-200 ease-in-out">
+<div class="flex justify-between items-center h-16 px-gutter max-w-container-max mx-auto">
+<div class="flex items-center gap-8">
+<a class="text-headline-md font-bold text-primary dark:text-primary-fixed tracking-tight focus-visible:ring-2 focus-visible:ring-primary rounded-sm" href="/">CivicPulse</a>
+<div class="hidden md:flex gap-6 text-body-base">
+<a class="text-on-surface hover:text-primary transition-colors relative group focus-visible:ring-1 focus-visible:ring-primary p-1" href="#">
+                    Data
+                    <span class="absolute bottom-[-4px] left-0 w-0 h-[2px] bg-primary transition-all duration-300 group-hover:w-full"></span>
+</a>
+<a class="text-on-surface hover:text-primary transition-colors relative group focus-visible:ring-1 focus-visible:ring-primary p-1" href="#">
+                    Reports
+                    <span class="absolute bottom-[-4px] left-0 w-0 h-[2px] bg-primary transition-all duration-300 group-hover:w-full"></span>
+</a>
+<a class="text-on-surface hover:text-primary transition-colors relative group focus-visible:ring-1 focus-visible:ring-primary p-1" href="#">
+                    Tools
+                    <span class="absolute bottom-[-4px] left-0 w-0 h-[2px] bg-primary transition-all duration-300 group-hover:w-full"></span>
+</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative hidden sm:block">
+<span aria-hidden="true" class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-sm">search</span>
+<input aria-label="Search" class="pl-9 pr-4 py-1.5 bg-surface-container-low border border-outline-variant text-body-sm focus:outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-primary transition-colors w-48 rounded-lg" placeholder="Search..." type="text"/>
+</div>
+<button class="bg-primary text-on-primary px-4 py-2 rounded-lg font-medium text-body-sm hover:opacity-90 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 transition-opacity shimmer-btn">Join Us</button>
+</div>
+</div>
+</nav>
+<!-- Main Content -->
+<main class="flex-grow flex flex-col items-center w-full px-margin-mobile md:px-gutter py-12 md:py-24 max-w-container-max mx-auto gap-24">
+<!-- Hero Section -->
+<header class="w-full flex flex-col items-center text-center max-w-3xl gap-6 animate-fade-in-up">
+<h1 class="text-display-lg-mobile md:text-display-lg font-bold text-primary tracking-tight">Data Led Governance for India</h1>
+<p class="text-body-base text-on-surface font-medium opacity-90 max-w-2xl">
+            Transparent, data-driven leadership for a better tomorrow. We believe in an open-source approach to democracy, providing actionable insights for public welfare.
+        </p>
+<div class="mt-4 flex flex-col sm:flex-row gap-4">
+<button class="bg-primary text-on-primary px-6 py-3 rounded-lg font-medium hover:opacity-90 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 transition-opacity shadow-sm shimmer-btn">
+                Explore Our Data
+            </button>
+<button class="bg-surface-container-lowest text-primary border border-outline-variant px-6 py-3 rounded-lg font-medium hover:bg-surface-container-low focus-visible:ring-2 focus-visible:ring-primary transition-colors">
+                Read Latest Reports
+            </button>
+</div>
+</header>
+<!-- Report Cards Section (Bento Grid) -->
+<section class="w-full flex flex-col gap-8">
+<div class="flex flex-col gap-2 animate-fade-in-up stagger-1">
+<h2 class="text-headline-md font-bold text-primary">Governance Performance</h2>
+<p class="text-body-sm text-on-surface opacity-80">Real-time metrics tracking our policy implementations.</p>
+</div>
+<!-- Semantic structure: ul/li list for grid items -->
+<ul class="grid grid-cols-1 md:grid-cols-3 gap-6 list-none p-0">
+<!-- Card 1 -->
+<li class="bg-surface-container-lowest border border-outline-variant rounded-xl p-padding-card flex flex-col gap-4 hover-lift opacity-0 animate-fade-in-up stagger-2 group" tabindex="0">
+<div class="flex justify-between items-start border-b border-outline-variant pb-3">
+<div class="flex items-center gap-2">
+<span aria-hidden="true" class="material-symbols-outlined text-outline">school</span>
+<h3 class="font-bold text-primary">Education Access</h3>
+</div>
+<span class="bg-surface-container text-on-surface font-bold px-2 py-1 rounded-DEFAULT text-label-mono">Q3 '23</span>
+</div>
+<div class="flex flex-col gap-1">
+<div class="flex justify-between items-end">
+<span class="text-display-lg-mobile text-primary leading-none font-bold">84<span class="text-headline-md text-outline font-normal">%</span></span>
+<span class="text-body-sm text-on-surface font-medium">+2.4% vs Q2</span>
+</div>
+<div class="w-full h-1 bg-surface-container mt-2 rounded-full overflow-hidden">
+<div class="h-full bg-primary w-[84%] transition-all duration-1000 ease-out delay-500 origin-left scale-x-100"></div>
+</div>
+</div>
+</li>
+<!-- Card 2 -->
+<li class="bg-surface-container-lowest border border-outline-variant rounded-xl p-padding-card flex flex-col gap-4 hover-lift opacity-0 animate-fade-in-up stagger-3" tabindex="0">
+<div class="flex justify-between items-start border-b border-outline-variant pb-3">
+<div class="flex items-center gap-2">
+<span aria-hidden="true" class="material-symbols-outlined text-outline">health_and_safety</span>
+<h3 class="font-bold text-primary">Public Health</h3>
+</div>
+<span class="bg-surface-container text-on-surface font-bold px-2 py-1 rounded-DEFAULT text-label-mono">Q3 '23</span>
+</div>
+<div class="flex flex-col gap-1">
+<div class="flex justify-between items-end">
+<span class="text-display-lg-mobile text-primary leading-none font-bold">A-</span>
+<span class="text-body-sm text-on-surface font-medium">Target met</span>
+</div>
+<div class="w-full h-8 mt-2 flex items-end gap-1 opacity-70">
+<div class="w-1/6 bg-outline-variant h-1/4 rounded-t-sm"></div>
+<div class="w-1/6 bg-outline-variant h-2/4 rounded-t-sm"></div>
+<div class="w-1/6 bg-outline-variant h-1/3 rounded-t-sm"></div>
+<div class="w-1/6 bg-outline-variant h-3/4 rounded-t-sm"></div>
+<div class="w-1/6 bg-outline-variant h-4/5 rounded-t-sm"></div>
+<div class="w-1/6 bg-primary h-full rounded-t-sm transition-all duration-700 ease-out delay-700"></div>
+</div>
+</div>
+</li>
+<!-- Card 3 -->
+<li class="bg-surface-container-lowest border border-outline-variant rounded-xl p-padding-card flex flex-col gap-4 hover-lift opacity-0 animate-fade-in-up stagger-4" tabindex="0">
+<div class="flex justify-between items-start border-b border-outline-variant pb-3">
+<div class="flex items-center gap-2">
+<span aria-hidden="true" class="material-symbols-outlined text-outline">construction</span>
+<h3 class="font-bold text-primary">Infrastructure</h3>
+</div>
+<span class="bg-surface-container text-on-surface font-bold px-2 py-1 rounded-DEFAULT text-label-mono">YTD</span>
+</div>
+<div class="flex flex-col gap-1">
+<div class="flex justify-between items-end">
+<span class="text-display-lg-mobile text-primary leading-none font-bold">1.2<span class="text-headline-md text-outline font-normal">k</span></span>
+<span class="text-body-sm text-on-surface font-medium">Projects Active</span>
+</div>
+<div class="flex gap-2 mt-2">
+<span class="px-2 py-1 bg-surface-container text-on-surface text-[10px] uppercase font-bold rounded-sm tracking-wider">Roads</span>
+<span class="px-2 py-1 bg-surface-container text-on-surface text-[10px] uppercase font-bold rounded-sm tracking-wider">Water</span>
+<span class="px-2 py-1 bg-surface-container text-on-surface text-[10px] uppercase font-bold rounded-sm tracking-wider">Power</span>
+</div>
+</div>
+</li>
+<!-- Card 4: Politician Report Card -->
+<li class="bg-surface-container-lowest border border-outline-variant rounded-xl p-padding-card flex flex-col gap-4 hover-lift opacity-0 animate-fade-in-up stagger-2" tabindex="0">
+<div class="flex justify-between items-start border-b border-outline-variant pb-3">
+<div class="flex items-center gap-2">
+<span aria-hidden="true" class="material-symbols-outlined text-outline">person</span>
+<h3 class="font-bold text-primary">Politician Report Card</h3>
+</div>
+<span class="bg-surface-container text-on-surface font-bold px-2 py-1 rounded-DEFAULT text-label-mono">2023-24</span>
+</div>
+<div class="flex flex-col gap-1">
+<div class="flex justify-between items-end">
+<span class="text-display-lg-mobile text-primary leading-none font-bold">B+</span>
+<span class="text-body-sm text-on-surface font-medium">Overall Grade</span>
+</div>
+<div class="flex flex-col gap-1 mt-2">
+<div class="flex justify-between text-[10px] uppercase font-bold tracking-wider text-on-surface">
+<span>Legislation</span>
+<span>82%</span>
+</div>
+<div class="w-full h-1 bg-surface-container rounded-full overflow-hidden">
+<div class="h-full bg-primary w-[82%]"></div>
+</div>
+<div class="flex justify-between text-[10px] uppercase font-bold tracking-wider text-on-surface mt-1">
+<span>Constituency Dev.</span>
+<span>74%</span>
+</div>
+<div class="w-full h-1 bg-surface-container rounded-full overflow-hidden">
+<div class="h-full bg-primary w-[74%]"></div>
+</div>
+</div>
+</div>
+</li>
+<!-- Card 5: Pollution Metrics -->
+<li class="bg-surface-container-lowest border border-outline-variant rounded-xl p-padding-card flex flex-col gap-4 hover-lift opacity-0 animate-fade-in-up stagger-3" tabindex="0">
+<div class="flex justify-between items-start border-b border-outline-variant pb-3">
+<div class="flex items-center gap-2">
+<span aria-hidden="true" class="material-symbols-outlined text-outline">air</span>
+<h3 class="font-bold text-primary">Pollution Metrics</h3>
+</div>
+<span class="bg-surface-container text-on-surface font-bold px-2 py-1 rounded-DEFAULT text-label-mono">LIVE</span>
+</div>
+<div class="flex flex-col gap-1">
+<div class="flex justify-between items-end">
+<span class="text-display-lg-mobile text-primary leading-none font-bold">142</span>
+<span class="text-body-sm text-error font-bold">Unhealthy*</span>
+</div>
+<p class="text-[10px] text-on-surface uppercase font-bold tracking-wider">AQI - Sensitive Groups</p>
+<div class="w-full h-8 mt-2 flex items-end gap-1 opacity-70">
+<div class="w-1/6 bg-outline-variant h-3/4 rounded-t-sm"></div>
+<div class="w-1/6 bg-outline-variant h-2/3 rounded-t-sm"></div>
+<div class="w-1/6 bg-outline-variant h-4/5 rounded-t-sm"></div>
+<div class="w-1/6 bg-outline-variant h-1/2 rounded-t-sm"></div>
+<div class="w-1/6 bg-outline-variant h-3/4 rounded-t-sm"></div>
+<div class="w-1/6 bg-error h-full rounded-t-sm"></div>
+</div>
+</div>
+</li>
+<!-- Card 6: Trending Topics -->
+<li class="bg-surface-container-lowest border border-outline-variant rounded-xl p-padding-card flex flex-col gap-4 hover-lift opacity-0 animate-fade-in-up stagger-4" tabindex="0">
+<div class="flex justify-between items-start border-b border-outline-variant pb-3">
+<div class="flex items-center gap-2">
+<span aria-hidden="true" class="material-symbols-outlined text-outline">trending_up</span>
+<h3 class="font-bold text-primary">Trending Topics</h3>
+</div>
+<span class="bg-error-container text-on-error-container font-bold px-2 py-1 rounded-DEFAULT text-label-mono">ALERT</span>
+</div>
+<div class="flex flex-col gap-1">
+<div class="flex justify-between items-end">
+<span class="text-headline-md font-bold text-primary">Dengue Cases</span>
+<span class="text-body-sm text-error font-bold">+15%</span>
+</div>
+<div class="mt-2">
+<span class="text-display-lg-mobile font-bold text-primary leading-none">124</span>
+<span class="text-body-sm text-on-surface font-medium ml-1">this week</span>
+</div>
+<div class="flex gap-2 mt-2">
+<span class="px-2 py-1 bg-surface-container text-on-surface text-[10px] uppercase font-bold rounded-sm tracking-wider">Health Advisory</span>
+<span class="px-2 py-1 bg-surface-container text-on-surface text-[10px] uppercase font-bold rounded-sm tracking-wider">Vector Control</span>
+</div>
+</div>
+</li>
+</ul>
+</section>
+<!-- Feature Section: Pothole Detector -->
+<section class="reveal-on-scroll w-full flex flex-col lg:flex-row gap-12 items-center bg-surface-container-lowest border border-outline-variant rounded-xl p-8 lg:p-12 overflow-hidden relative" id="pathsense-section">
+<div class="flex-1 flex flex-col gap-6 z-10">
+<h2 class="text-display-lg-mobile font-bold text-primary">PathSense</h2>
+<p class="text-body-base text-on-surface font-medium opacity-90 max-w-md">
+                Report and track road maintenance in real-time. Upload photos, track fix status, and hold local contractors accountable with our open ledger system.
+            </p>
+<div class="flex flex-col sm:flex-row gap-4 mt-4">
+<button class="flex items-center justify-center gap-2 bg-primary text-on-primary px-5 py-2.5 rounded-lg font-medium text-body-sm hover:opacity-90 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 transition-opacity shimmer-btn">
+<span aria-hidden="true" class="material-symbols-outlined text-[20px]">android</span>
+                    Download APK
+                </button>
+<button class="flex items-center justify-center gap-2 bg-surface-container-lowest text-primary border border-outline-variant px-5 py-2.5 rounded-lg font-medium text-body-sm hover:bg-surface-container-low focus-visible:ring-2 focus-visible:ring-primary transition-colors">
+<span aria-hidden="true" class="material-symbols-outlined text-[20px]">shop</span>
+                    Play Store
+                </button>
+<button class="flex items-center justify-center gap-2 bg-surface-container-lowest text-primary border border-outline-variant px-5 py-2.5 rounded-lg font-medium text-body-sm hover:bg-surface-container-low focus-visible:ring-2 focus-visible:ring-primary transition-colors">
+<span aria-hidden="true" class="material-symbols-outlined text-[20px]">apps</span>
+                    App Store
+                </button>
+</div>
+</div>
+<div class="flex-1 relative w-full h-[400px] flex items-center justify-center bg-surface-container-low rounded-xl border border-outline-variant overflow-hidden group">
+<img alt="Smartphone showing the PathSense app with a map of India and localized road condition pins" class="w-full h-full object-cover opacity-90 transition-transform duration-700 group-hover:scale-110" src="https://lh3.googleusercontent.com/aida/AP1WRLsjLJrDK4cQksG3sRpzPKV8rpoMabpD0G00RYjHg7kRwABJWp7A7pMtXcNKUw2RvXr7G4qxLvlEhUe2xiiKYPLIXzUwKzXQXdHcay5B1nsO4IpjYPGH829zZMBuDiJmRSiSrSKV6FdVTbUJR3u1Xf1SjF4SDsHx5IAuyPryGFWsdIq5KlVFCwGXKpVy4azM9-gFX_dyzmn3-fYEth4ySgJIobIajZpJWiRvWsLBlET0EJSleylVxT6gAPwA"/>
+<div class="absolute inset-0 bg-[linear-gradient(to_right,#e0e3e5_1px,transparent_1px),linear-gradient(to_bottom,#e0e3e5_1px,transparent_1px)] bg-[size:24px_24px] opacity-20 pointer-events-none"></div>
+</div>
+</section>
+<!-- Data Sets Section -->
+<section class="w-full flex flex-col gap-6 reveal-on-scroll">
+<div class="flex justify-between items-end border-b border-outline-variant pb-4">
+<div class="flex flex-col gap-1">
+<h2 class="text-headline-md font-bold text-primary">Open Datasets</h2>
+<p class="text-body-sm text-on-surface opacity-80">Downloadable CSVs and APIs for public audit.</p>
+</div>
+<a class="text-body-sm font-bold text-primary hover:translate-x-1 focus-visible:translate-x-1 focus-visible:ring-1 focus-visible:ring-primary transition-transform inline-block hidden sm:block p-1" href="#">View Directory →</a>
+</div>
+<div class="flex flex-col">
+<!-- Data Row 1 -->
+<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center py-4 border-b border-outline-variant hover:bg-surface-container-low transition-colors px-2 -mx-2 rounded-sm gap-4 group">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded bg-surface-container flex items-center justify-center text-outline group-hover:text-primary transition-colors">
+<span aria-hidden="true" class="material-symbols-outlined">table_chart</span>
+</div>
+<div class="flex flex-col">
+<span class="font-bold text-primary">Budget Allocation 2024</span>
+<span class="text-body-sm text-on-surface font-medium opacity-90">National and State level granular expenditure data.</span>
+</div>
+</div>
+<div class="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+<span class="text-label-mono text-on-surface font-bold bg-surface-container px-2 py-1 rounded">CSV • 12MB</span>
+<button aria-label="Download Budget Allocation 2024 CSV" class="text-primary hover:scale-110 focus-visible:scale-110 focus-visible:ring-2 focus-visible:ring-primary p-1 rounded-sm transition-transform">
+<span aria-hidden="true" class="material-symbols-outlined">download</span>
+</button>
+</div>
+</div>
+<!-- Data Row 2 -->
+<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center py-4 border-b border-outline-variant hover:bg-surface-container-low transition-colors px-2 -mx-2 rounded-sm gap-4 group">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded bg-surface-container flex items-center justify-center text-outline group-hover:text-primary transition-colors">
+<span aria-hidden="true" class="material-symbols-outlined">map</span>
+</div>
+<div class="flex flex-col">
+<span class="font-bold text-primary">Regional Development Data</span>
+<span class="text-body-sm text-on-surface font-medium opacity-90">GIS coordinates for all active infrastructure projects.</span>
+</div>
+</div>
+<div class="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+<span class="text-label-mono text-on-surface font-bold bg-surface-container px-2 py-1 rounded">JSON • 45MB</span>
+<button aria-label="Download Regional Development Data JSON" class="text-primary hover:scale-110 focus-visible:scale-110 focus-visible:ring-2 focus-visible:ring-primary p-1 rounded-sm transition-transform">
+<span aria-hidden="true" class="material-symbols-outlined">download</span>
+</button>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="bg-surface-container-low dark:bg-inverse-surface border-t border-outline-variant dark:border-outline mt-auto">
+<div class="py-12 px-gutter max-w-container-max mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
+<div class="flex flex-col items-center md:items-start gap-2">
+<span class="text-body-base font-bold text-primary">CivicPulse</span>
+<span class="text-body-sm text-on-surface font-medium text-center md:text-left opacity-90">
+                © 2024 Collaborative Governance Initiative. Radical Transparency by Design.
+            </span>
+</div>
+<nav aria-label="Footer Navigation" class="flex flex-wrap justify-center gap-6 text-body-sm">
+<a class="text-on-surface font-bold hover:text-primary transition-colors p-1 focus-visible:ring-1 focus-visible:ring-primary" href="#">Contact</a>
+<a class="text-on-surface font-bold hover:text-primary transition-colors p-1 focus-visible:ring-1 focus-visible:ring-primary" href="#">Privacy Policy</a>
+<a class="text-on-surface font-bold hover:text-primary transition-colors p-1 focus-visible:ring-1 focus-visible:ring-primary" href="#">Terms of Service</a>
+<a aria-label="Twitter" class="text-on-surface font-bold hover:text-primary transition-colors p-1 focus-visible:ring-1 focus-visible:ring-primary" href="#" title="Follow CivicPulse on Twitter">Twitter</a>
+<a aria-label="GitHub" class="text-on-surface font-bold hover:text-primary transition-colors p-1 focus-visible:ring-1 focus-visible:ring-primary" href="#" title="CivicPulse Open Source Repository">GitHub</a>
+</nav>
+</div>
+</footer>
+<script>
+    // Intersection Observer for scroll animations
+    const observerOptions = {
+        threshold: 0.1,
+        rootMargin: '0px 0px -50px 0px'
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('visible');
+            }
+        });
+    }, observerOptions);
+
+    // Only observe if user doesn't prefer reduced motion
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    
+    if (!prefersReducedMotion.matches) {
+        document.querySelectorAll('.reveal-on-scroll').forEach(el => observer.observe(el));
+    } else {
+        // Immediately show all elements if motion is reduced
+        document.querySelectorAll('.reveal-on-scroll').forEach(el => el.classList.add('visible'));
+        document.querySelectorAll('.animate-fade-in-up').forEach(el => el.style.opacity = '1');
+    }
+</script>
+</body></html>

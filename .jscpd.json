@@ -1,0 +1,23 @@
+{
+  "absolute": true,
+  "gitignore": true,
+  "mode": "mild",
+  "minLines": 15,
+  "minTokens": 75,
+  "maxLines": 500,
+  "format": ["typescript", "tsx", "javascript", "jsx"],
+  "path": ["app", "components", "lib", "hooks", "actions"],
+  "ignore": [
+    "**/node_modules/**",
+    "**/.next/**",
+    "**/coverage/**",
+    "**/e2e/**",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.stories.tsx",
+    "**/scripts/**"
+  ],
+  "reporters": ["console", "json", "html"],
+  "output": "jscpd-report",
+  "silent": false
+}

@@ -1,0 +1,51 @@
+:root {
+  color-scheme: dark;
+
+  /* Deep blacks — not charcoal grey */
+  --app-bg: #000000;
+  --app-text: #f5f5f5;
+  --app-text-muted: rgba(245, 245, 245, 0.62);
+
+  --background: #000000;
+  --foreground: #f5f5f5;
+  --card: #0a0a0a;
+  --card-foreground: #f5f5f5;
+  --popover: #0a0a0a;
+  --popover-foreground: #f5f5f5;
+  --primary: #ffffff;
+  --primary-foreground: #000000;
+  --secondary: #a3a3a3;
+  --secondary-foreground: #000000;
+  --muted: #0a0a0a;
+  --muted-foreground: rgba(245, 245, 245, 0.62);
+  --accent: #0a0a0a;
+  --accent-foreground: #f5f5f5;
+  --destructive: #ffb4ab;
+  --destructive-foreground: #690005;
+  --border: rgba(255, 255, 255, 0.1);
+  --input: rgba(255, 255, 255, 0.1);
+  --ring: rgba(255, 255, 255, 0.22);
+
+  --surface: #000000;
+  --surface-container: #0a0a0a;
+  --surface-container-low: #050505;
+  --surface-container-lowest: #000000;
+  --surface-container-high: #111111;
+  --on-surface: #f5f5f5;
+  --on-background: #f5f5f5;
+  --outline: #737373;
+  --outline-variant: rgba(255, 255, 255, 0.1);
+  --inverse-surface: #f5f5f5;
+  --error: #ffb4ab;
+  --error-container: #93000a;
+  --on-error-container: #ffdad6;
+
+  --font-size-sm: 0.875rem;
+  --font-size-md: 1rem;
+  --line-height-body: 1.5;
+  --container-max: 1200px;
+  --gutter: 32px;
+  --margin-mobile: 20px;
+  --padding-card: 32px;
+  --radius-card: 1.25rem;
+}

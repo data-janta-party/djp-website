@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1750867200000,
+      "tag": "0000_create_health_checks",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1784570763817,
+      "tag": "0001_create_volunteers",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784630000000,
+      "tag": "0002_volunteers_email_unique_drop_health",
+      "breakpoints": true
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+name: Setup template dependencies
+description: Restore caches and install dependencies for CI.
+
+runs:
+  using: composite
+  steps:
+    - name: Setup pnpm
+      # pnpm/action-setup@v4.3.0
+      uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1
+
+    - name: Setup Node.js
+      # actions/setup-node@v4.4.0
+      uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+      with:
+        node-version: 22
+
+    - name: Get pnpm store directory
+      id: pnpm-store
+      shell: bash
+      run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+    - name: Cache pnpm store
+      # actions/cache@v4.3.0
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
+      with:
+        path: ${{ steps.pnpm-store.outputs.path }}
+        key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', 'package.json') }}
+        restore-keys: |
+          pnpm-${{ runner.os }}-
+
+    - name: Cache node_modules
+      # actions/cache@v4.3.0
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
+      with:
+        path: node_modules
+        key: node-modules-${{ hashFiles('pnpm-lock.yaml', 'package.json') }}
+        restore-keys: |
+          node-modules-
+
+    - name: Install dependencies
+      shell: bash
+      run: bash scripts/ci-install.sh

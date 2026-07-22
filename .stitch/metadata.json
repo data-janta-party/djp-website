@@ -1,0 +1,45 @@
+{
+  "projectId": "17423795770121548038",
+  "title": "Collaborative Governance Portal",
+  "visibility": "PRIVATE",
+  "deviceType": "DESKTOP",
+  "origin": "STITCH",
+  "createTime": "2026-07-07T04:49:30.196Z",
+  "updateTime": "2026-07-07T13:45:30.518026Z",
+  "lastSyncTime": "2026-07-07T13:46:48.428Z",
+  "designTheme": {
+    "colorMode": "LIGHT",
+    "font": "INTER",
+    "labelFont": "JETBRAINS_MONO",
+    "namedColors": {
+      "background": "#fbf9f9",
+      "surface": "#fbf9f9",
+      "on_surface": "#1b1c1c",
+      "on_background": "#1b1c1c",
+      "primary": "#000000",
+      "on_primary": "#e3e2e2",
+      "secondary": "#5e5e5e",
+      "outline": "#777777",
+      "outline_variant": "#c6c6c6"
+    }
+  },
+  "screens": {
+    "b05983fe3e064b9291143ae0ab48c7fc": {
+      "id": "b05983fe3e064b9291143ae0ab48c7fc",
+      "label": "Civic Pulse Homepage - Accessible Version",
+      "sourceScreen": "projects/17423795770121548038/screens/b05983fe3e064b9291143ae0ab48c7fc",
+      "width": 2560,
+      "height": 4350,
+      "canvasPosition": {
+        "x": 844,
+        "y": 2346
+      },
+      "assets": {
+        "html": ".stitch/designs/civic-pulse-homepage.html",
+        "screenshot": ".stitch/designs/civic-pulse-homepage.png",
+        "htmlDownloadUrl": "https://contribution.usercontent.google.com/download?c=CgthaWRhX2NvZGVmeBJ8Eh1hcHBfY29tcGFuaW9uX2dlbmVyYXRlZF9maWxlcxpbCiVodG1sXzAwMDY1NjAyMDg1MTdhZTMwMzgzYTFiODJjMjFjMzhjEgsSBxDOl7WQ1hEYAZIBJAoKcHJvamVjdF9pZBIWQhQxNzQyMzc5NTc3MDEyMTU0ODAzOA&filename=&opi=89354086",
+        "screenshotDownloadUrl": "https://lh3.googleusercontent.com/aida/AP1WRLsWHJ_e_C1HjDNGj6WE1qeWKFHHtzdkca5LYNGV2D51Jf7JTF_cOBW5Mu1638t8haVEppxljrOO0r27aNsNFNGYU9bSVPSIXw16cvVIJhCiO6MRquyCAsecwtSqCcVAv0wCW59_ITCxNY5KFXdKZF_b9ZlDLXlX_VvRmZmUN0ZqSLJGCj2F5OqOG0iAnd5L4E48Vkl8vUcyBUhf3u2VBty7htYCu1U-bK__oWS9mYpsoWPV7kEtd0snl3pD"
+      }
+    }
+  }
+}

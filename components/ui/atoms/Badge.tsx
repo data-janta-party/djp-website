@@ -1,0 +1,1 @@
+export { Badge } from '@/components/ui/shadcn/badge';

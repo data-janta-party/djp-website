@@ -1,0 +1,887 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import './theme/tokens.css';
+
+@theme inline {
+  --color-app-bg: var(--app-bg);
+  --color-app-text: var(--app-text);
+  --color-app-text-muted: var(--app-text-muted);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-surface: var(--surface);
+  --color-surface-container: var(--surface-container);
+  --color-surface-container-low: var(--surface-container-low);
+  --color-surface-container-lowest: var(--surface-container-lowest);
+  --color-surface-container-high: var(--surface-container-high);
+  --color-on-surface: var(--on-surface);
+  --color-on-background: var(--on-background);
+  --color-outline: var(--outline);
+  --color-outline-variant: var(--outline-variant);
+  --color-inverse-surface: var(--inverse-surface);
+  --color-error: var(--error);
+  --color-error-container: var(--error-container);
+  --color-on-error-container: var(--on-error-container);
+  --spacing-gutter: var(--gutter);
+  --spacing-margin-mobile: var(--margin-mobile);
+  --spacing-padding-card: var(--padding-card);
+  --spacing-container-max: var(--container-max);
+  --radius-card: var(--radius-card);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-label: var(--font-geist-mono);
+  --text-sm: var(--font-size-sm);
+  --text-sm--line-height: var(--line-height-body);
+  --text-md: var(--font-size-md);
+  --text-md--line-height: var(--line-height-body);
+}
+
+body {
+  background: var(--app-bg);
+  color: var(--app-text);
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+.skip-link {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skip-link:focus {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  z-index: 50;
+  width: auto;
+  height: auto;
+  margin: 0;
+  overflow: visible;
+  clip: auto;
+  white-space: normal;
+  border-radius: 0.25rem;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  padding: 0.5rem 1rem;
+}
+
+.ambient-glow {
+  background:
+    radial-gradient(ellipse 50% 40% at 20% 30%, rgba(33, 150, 243, 0.18), transparent 70%),
+    radial-gradient(ellipse 45% 35% at 80% 40%, rgba(233, 30, 99, 0.14), transparent 70%),
+    radial-gradient(ellipse 40% 30% at 50% 80%, rgba(76, 175, 80, 0.1), transparent 70%);
+}
+
+/*
+ * One scroll intent → one full-viewport panel.
+ * Wheel navigation is owned by useStorySnapWheel (smooth jump + snap briefly off).
+ * CSS snap remains for touch / fallback; default scroll-behavior stays auto.
+ */
+html.story-snap {
+  /* Sticky civic navbar is h-16 (4rem) */
+  --story-nav-offset: 4rem;
+  scroll-snap-type: y mandatory;
+  scroll-behavior: auto;
+  overscroll-behavior-y: none;
+  background: #000000;
+}
+
+html.story-snap,
+html.story-snap body {
+  background: #000000;
+  color: #f5f5f5;
+}
+
+/*
+ * Outer snap target: full-bleed under sticky nav (black shows through the bar).
+ * Do not put content padding here — Tailwind utilities were overriding it.
+ */
+.story-snap-panel {
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  scroll-margin-top: 0;
+  background-color: #000000;
+  box-sizing: border-box;
+}
+
+.story-snap-volunteer {
+  scroll-snap-align: start;
+  scroll-snap-stop: normal;
+  box-sizing: border-box;
+  min-height: 100svh;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  background-color: #000000;
+}
+
+/*
+ * Inner content only: always clear the sticky navbar.
+ * Use this wrapper for Join / Volunteer / brand copy — not outer pt-* utilities.
+ */
+.story-snap-inset {
+  box-sizing: border-box;
+  width: 100%;
+  padding-top: calc(var(--story-nav-offset) + 1.25rem);
+  padding-bottom: 2.5rem;
+}
+
+/* Hash / nav “Volunteer” — land so the form header is below the bar */
+html.story-snap #volunteer {
+  scroll-margin-top: calc(var(--story-nav-offset) + 1rem);
+}
+
+/* Footer is never a snap target — free document flow after volunteer */
+html.story-snap #civic-pulse-footer {
+  scroll-snap-align: none;
+  scroll-snap-stop: normal;
+}
+
+/* Join headline — rotating adjective crossfade + width morph */
+@keyframes join-word-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 0.35em, 0);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+    filter: blur(0);
+  }
+}
+
+@keyframes join-word-out {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+    filter: blur(0);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(0, -0.35em, 0);
+    filter: blur(4px);
+  }
+}
+
+.join-word-slot {
+  min-height: 1.15em;
+  vertical-align: baseline;
+  /* Morph width to the active word so short adjectives don’t leave a hole before “India.” */
+  transition: width 0.35s cubic-bezier(0.2, 0.9, 0.2, 1);
+}
+
+.join-word {
+  color: #fff;
+}
+
+.join-word-in {
+  animation: join-word-in 0.42s cubic-bezier(0.2, 0.9, 0.2, 1) both;
+}
+
+.join-word-out {
+  animation: join-word-out 0.42s cubic-bezier(0.2, 0.9, 0.2, 1) both;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .join-word-slot {
+    transition: none;
+  }
+
+  .join-word-in,
+  .join-word-out {
+    animation: none !important;
+  }
+}
+
+/* India visions — lines converge; merged line grows in place (same slide) */
+@keyframes india-visions-merge-in {
+  from {
+    opacity: 0;
+    transform: scale(0.72);
+    filter: blur(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0);
+  }
+}
+
+.india-visions-vignette {
+  background: radial-gradient(
+    ellipse at center,
+    transparent 0%,
+    transparent 35%,
+    rgb(0 0 0 / 0.55) 70%,
+    rgb(0 0 0 / 0.85) 100%
+  );
+}
+
+.india-visions-center {
+  width: min(92vw, 28rem);
+  filter: drop-shadow(0 2px 24px rgb(0 0 0 / 0.9));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.story-snap {
+    scroll-snap-type: y proximity;
+  }
+
+  @keyframes join-word-in {
+    from,
+    to {
+      opacity: 1;
+      transform: none;
+      filter: none;
+    }
+  }
+
+  @keyframes join-word-out {
+    from,
+    to {
+      opacity: 0;
+      transform: none;
+      filter: none;
+    }
+  }
+
+  .join-word-slot {
+    transition: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #civic-pulse-navbar,
+  #civic-pulse-footer,
+  #civic-pulse-home,
+  #civic-pulse-navbar *,
+  #civic-pulse-footer *,
+  #civic-pulse-home * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* Kinetic speech film — immersive chrome + mask type */
+html.kinetic-speech-active #civic-pulse-footer {
+  display: none;
+}
+
+html.kinetic-speech-active #civic-pulse-navbar {
+  background: transparent;
+  border-color: transparent;
+  backdrop-filter: none;
+}
+
+/*
+ * Film chrome: ghost/outline nav controls go light-on-dark.
+ * Do NOT paint solid primary CTAs (white fill + dark label) — the global
+ * color rule is higher specificity than Tailwind utilities and would make
+ * #navbar-volunteer white-on-white.
+ */
+html.kinetic-speech-active #civic-pulse-navbar a:not(#navbar-brand):not(#navbar-volunteer),
+html.kinetic-speech-active #civic-pulse-navbar button:not([data-variant='default']) {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+html.kinetic-speech-active #navbar-volunteer {
+  color: var(--primary-foreground);
+}
+
+html.kinetic-speech-active #navbar-brand {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* Kinetic speech film — monochrome pure black + white type; Tiranga only on India.
+ * Type scale is mobile-first: lower floors on phones so long phrases fit under
+ * overflow-hidden; md+ restores cinematic Don’t Blink punch. */
+#kinetic-speech-film {
+  --kinetic-charcoal: #000000;
+  --kinetic-off-white: #f7f6f5;
+  --kinetic-dim-white: rgba(255, 255, 255, 0.88);
+  --kinetic-focus-ring: rgba(255, 255, 255, 0.55);
+}
+
+/* Soft openers / connective tissue — mobile floor prioritizes readability */
+.kinetic-type-whisper {
+  font-size: clamp(1.25rem, 4.8vw, 2.25rem);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+  color: #fff;
+}
+
+/* Story body — mobile floor ~1.45rem; prefer wrap over shrink on phones */
+.kinetic-type-body {
+  font-size: clamp(1.45rem, 5.8vw, 2.75rem);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  color: #fff;
+}
+
+.kinetic-type-slam {
+  font-size: clamp(2rem, 10vw, 5.25rem);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+  color: #fff;
+}
+
+.kinetic-type-slam-xl {
+  font-size: clamp(2.4rem, 14vw, 7rem);
+  font-weight: 800;
+  letter-spacing: -0.05em;
+  line-height: 0.95;
+  color: #fff;
+}
+
+.kinetic-type-brand {
+  font-size: clamp(1.15rem, 4vw, 2rem);
+  font-weight: 600;
+  color: #fff;
+}
+
+/* Thesis lane: near body size (not slam) so long sentences stay readable */
+.kinetic-type-close {
+  font-size: clamp(1.45rem, 5.6vw, 2.9rem);
+  font-weight: 500;
+  letter-spacing: -0.025em;
+  line-height: 1.28;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+@media (min-width: 768px) {
+  .kinetic-type-whisper {
+    font-size: clamp(1.5rem, 4.2vw, 2.25rem);
+  }
+
+  .kinetic-type-body {
+    font-size: clamp(1.75rem, 5.2vw, 2.75rem);
+  }
+
+  .kinetic-type-slam {
+    font-size: clamp(2.75rem, 9vw, 5.25rem);
+  }
+
+  .kinetic-type-slam-xl {
+    font-size: clamp(3.5rem, 14vw, 7rem);
+  }
+
+  .kinetic-type-brand {
+    font-size: clamp(1.35rem, 3.5vw, 2rem);
+  }
+
+  .kinetic-type-close {
+    font-size: clamp(1.75rem, 5.4vw, 2.9rem);
+  }
+}
+
+/* Color modifiers after type roles so they win on same specificity */
+.kinetic-dim-text {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+/* Flood tiles: denser wall of text, full-stage packing */
+.kinetic-type-micro-grid,
+.kinetic-spam-word {
+  font-size: clamp(0.95rem, 3.6vw, 1.85rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--kinetic-dim-white);
+}
+
+.kinetic-flood-wall {
+  pointer-events: none;
+}
+
+/* Mid-film delayed-project kinetic cards (name / Delayed. / years) */
+.kinetic-project-delays {
+  pointer-events: none;
+}
+
+.kinetic-delay-card {
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+.kinetic-delay-project {
+  font-size: clamp(1.15rem, 4.2vw, 2.35rem);
+  font-weight: 600;
+  color: var(--kinetic-off-white);
+  max-width: min(90vw, 34rem);
+  overflow-wrap: anywhere;
+  letter-spacing: -0.03em;
+}
+
+.kinetic-delay-label {
+  font-size: clamp(0.95rem, 2.8vw, 1.45rem);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--kinetic-dim-white);
+  opacity: 0.72;
+}
+
+.kinetic-delay-years {
+  font-size: clamp(1.85rem, 8.5vw, 4.25rem);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+  color: var(--kinetic-off-white);
+  white-space: nowrap;
+}
+
+.kinetic-delay-more {
+  text-align: center;
+  max-width: min(92vw, 36rem);
+}
+
+/* Endcard Sources hover control — above chrome safe area */
+.kinetic-endcard-sources-trigger {
+  font-size: clamp(0.7rem, 1.4vw, 0.8rem);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--kinetic-dim-white);
+  opacity: 0.68;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.kinetic-endcard-sources-trigger:hover,
+.kinetic-endcard-sources-trigger:focus-visible {
+  opacity: 0.95;
+}
+
+.kinetic-endcard-sources-trigger:focus-visible {
+  outline: 1px solid var(--kinetic-focus-ring);
+  outline-offset: 2px;
+}
+
+/*
+ * Portaled HoverCard content mounts on document.body (outside #kinetic-speech-film).
+ * Redeclare film tokens here so charcoal / dim / focus-ring resolve on the popup tree.
+ */
+.kinetic-endcard-sources-content {
+  --kinetic-charcoal: #000000;
+  --kinetic-off-white: #f7f6f5;
+  --kinetic-dim-white: rgba(255, 255, 255, 0.88);
+  --kinetic-focus-ring: rgba(255, 255, 255, 0.55);
+  background: var(--kinetic-charcoal, #000000);
+  color: var(--kinetic-off-white, #f7f6f5);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 12px 32px rgba(0, 0, 0, 0.45);
+}
+
+.kinetic-endcard-sources-heading {
+  font-size: clamp(0.65rem, 1.3vw, 0.75rem);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--kinetic-dim-white, rgba(255, 255, 255, 0.88));
+  opacity: 0.55;
+  margin-bottom: 0.5rem;
+}
+
+.kinetic-endcard-sources-link {
+  display: block;
+  font-size: 0.875rem;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.78);
+  text-decoration: none;
+  text-underline-offset: 2px;
+}
+
+.kinetic-endcard-sources-link:hover,
+.kinetic-endcard-sources-link:focus-visible {
+  color: #fff;
+  text-decoration: underline;
+  outline: none;
+}
+
+.kinetic-endcard-sources-link:focus-visible {
+  outline: 1px solid var(--kinetic-focus-ring, rgba(255, 255, 255, 0.55));
+  outline-offset: 2px;
+}
+
+.kinetic-cloud-word {
+  font-size: clamp(1.1rem, 3.8vw, 2rem);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* Tiranga (India flag) gradient for the closing “India.” */
+.kinetic-tiranga {
+  background-image: linear-gradient(
+    180deg,
+    #ff9933 0%,
+    #ff9933 32%,
+    #ffffff 32%,
+    #ffffff 68%,
+    #138808 68%,
+    #138808 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  font-weight: 800;
+}
+
+/* Pre-Imagine stress (weight/underline — monochrome) */
+.kinetic-word-stress {
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 0.12em;
+}
+
+/* Sticky prefix + morphing suffix */
+.kinetic-sticky {
+  line-height: 1.25;
+  box-sizing: border-box;
+}
+
+/* All inline stickies: prefix stays on one line (shrink/clamp, never wrap onto suffix line) */
+.kinetic-sticky-prefix {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Inline stickies: tighter narrow clamp so long phrases fit one line without clip */
+.kinetic-sticky-inline .kinetic-type-body,
+.kinetic-sticky-inline .kinetic-type-close {
+  font-size: clamp(1.1rem, 4.2vw, 2.75rem);
+}
+
+@media (min-width: 768px) {
+  .kinetic-sticky-inline .kinetic-type-body,
+  .kinetic-sticky-inline .kinetic-type-close {
+    font-size: clamp(1.2rem, 3.8vw, 2.75rem);
+  }
+}
+
+/* Demand wide sticky: prefix + suffix on one line; gap replaces trailing space (flex collapses spaces) */
+.kinetic-sticky-wide {
+  box-sizing: border-box;
+  column-gap: 0.35em;
+  row-gap: 0.15em;
+}
+
+/* Keep "We want" locked on the same line as the morphing suffix — never solo-wrap */
+.kinetic-sticky-wide .kinetic-sticky-prefix {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.kinetic-sticky-wide .kinetic-type-body,
+.kinetic-sticky-wide .kinetic-type-close {
+  font-size: clamp(1.15rem, 4.2vw, 2.75rem);
+}
+
+.kinetic-sticky-wide .kinetic-sticky-suffix-run {
+  /*
+   * flex: 0 1 auto — can shrink for long suffixes, must NOT grow.
+   * flex: 1 previously filled the full-width sticky row and pinned “We want”
+   * to the left edge instead of centering the phrase like other stage copy.
+   * Force nowrap so “We want no corruption,” stays a single line.
+   */
+  min-width: 0;
+  max-width: 100%;
+  flex: 0 1 auto;
+  white-space: nowrap;
+}
+
+/*
+ * Wide morph: sizer + live suffixes MUST share the same nowrap rule.
+ * Both use max-width: 100% of the slot (sizer sets slot width). Do not reintroduce
+ * a second min(92vw, 40ch) on absolute suffixes — dual sources desync wrap/flicker.
+ * Demand suffixes stay single-line (whitespace-nowrap) with a slightly wider stage clamp.
+ */
+.kinetic-sticky-wide .kinetic-sticky-suffix-slot > [data-k-sticky-suffix] {
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+/* Wide morph: invisible longest phrase sizes the slot; live suffixes stack absolute */
+.kinetic-sticky-wide-slot {
+  min-width: 0;
+  max-width: 100%;
+  white-space: nowrap;
+}
+
+/* Sticky-pairs: stacked two-line layout */
+.kinetic-sticky-pair {
+  box-sizing: border-box;
+  width: min(100%, 96vw);
+  max-width: min(96vw, 72rem);
+}
+
+/*
+ * Short sticky-pairs (Government office / VIP minutes): near full body size on phones
+ * so “Government office. / 5 visits.” and “Ambulance stuck for VIP. / 15 minutes.” read cleanly.
+ * Prefer wrap over shrink.
+ */
+.kinetic-sticky-pair .kinetic-type-body,
+.kinetic-sticky-pair .kinetic-type-close {
+  font-size: clamp(1.35rem, 5.4vw, 2.5rem);
+}
+
+@media (min-width: 768px) {
+  .kinetic-sticky-pair .kinetic-type-body,
+  .kinetic-sticky-pair .kinetic-type-close {
+    font-size: clamp(1.5rem, 4vw, 2.5rem);
+  }
+}
+
+/* Dense inventory sticky-pair only: denser than body but still phone-readable */
+.kinetic-sticky-pair-dense .kinetic-type-body,
+.kinetic-sticky-pair-dense .kinetic-type-close {
+  font-size: clamp(1.05rem, 3.8vw, 1.85rem);
+}
+
+@media (min-width: 768px) {
+  .kinetic-sticky-pair-dense .kinetic-type-body,
+  .kinetic-sticky-pair-dense .kinetic-type-close {
+    font-size: clamp(0.95rem, 2.6vw, 1.85rem);
+  }
+}
+
+/* Trailing ellipsis: hangs after the active morph glyph (step-local) or prefix (empty-suffix) */
+.kinetic-sticky-suffix-run {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  white-space: nowrap;
+}
+
+/*
+ * Morph slot: invisible longest-suffix sizer owns width for ALL inline stickies.
+ * Live suffixes stack absolute (opacity morph); bottom locks baseline to the sizer.
+ * Dots for dotted steps live INSIDE each active suffix (flush after the word).
+ */
+.kinetic-sticky-suffix-slot {
+  position: relative;
+  display: inline-block;
+  vertical-align: baseline;
+  min-width: 0;
+}
+
+.kinetic-sticky-suffix-slot > [data-k-sticky-suffix] {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  top: auto;
+  white-space: nowrap;
+  transform-origin: left bottom;
+}
+
+/*
+ * Step-local dots hang flush after the painted glyph. Slot width is reserved by the
+ * invisible sizer, which includes "..." when any morph step has dots — so ellipsis
+ * does not clip past the sticky w-max box while still reading as trailing "...".
+ */
+.kinetic-sticky-suffix-slot > [data-k-sticky-suffix] .kinetic-loading-dots {
+  display: inline;
+  margin: 0;
+  padding: 0;
+}
+
+.kinetic-loading-dots {
+  display: inline;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+  letter-spacing: inherit;
+  line-height: inherit;
+  font: inherit;
+  font-size: 1em;
+  font-weight: inherit;
+  color: inherit;
+  gap: 0;
+  vertical-align: baseline;
+}
+
+.kinetic-loading-dot {
+  /* inline-block so beat y-bounce can transform; still a literal period glyph */
+  display: inline-block;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+  width: auto;
+  font: inherit;
+  font-size: 1em;
+  font-weight: inherit;
+  line-height: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+  vertical-align: baseline;
+  /* Visibility driven by GSAP autoAlpha — not a separate chrome style */
+  opacity: 0;
+}
+
+/* Finale word reels: three slots always visible — adjectives then data.janta.party */
+.kinetic-roller {
+  line-height: 1;
+  min-height: 1.15em;
+  letter-spacing: 0;
+  gap: 0;
+  max-width: 100%;
+  /* Slight shrink on narrow phones so three reels fit one line */
+  transform-origin: center center;
+}
+
+@media (max-width: 639px) {
+  .kinetic-roller {
+    transform: scale(0.88);
+  }
+}
+
+.kinetic-roller-slot {
+  gap: 0;
+  line-height: 1;
+}
+
+.kinetic-roller-dot {
+  display: inline-block;
+  line-height: 1.15em;
+  padding: 0;
+  margin: 0;
+  user-select: none;
+  font: inherit;
+  font-weight: inherit;
+  letter-spacing: 0;
+}
+
+/* Cell height 1.15em must match kineticSpeechReelCellEm in lib/data/kinetic-speech.ts */
+.kinetic-reel {
+  display: inline-block;
+  height: 1.15em;
+  overflow: hidden;
+  vertical-align: bottom;
+  min-width: 0;
+}
+
+/* Mobile: compact reels so data.janta.party fits; md+: room for longest adjective */
+.kinetic-reel-word {
+  min-width: 7ch;
+  max-width: none;
+  text-align: center;
+}
+
+@media (min-width: 768px) {
+  .kinetic-reel-word {
+    min-width: 12ch;
+  }
+}
+
+.kinetic-reel-window {
+  display: block;
+  height: 1.15em;
+  overflow: hidden;
+}
+
+.kinetic-reel-strip {
+  display: flex;
+  flex-direction: column;
+  will-change: transform;
+}
+
+.kinetic-reel-cell {
+  display: flex;
+  height: 1.15em;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.15em;
+  white-space: nowrap;
+  padding: 0 0.02em;
+}
+
+/*
+ * Gandhi quote: hierarchy is always quote > attribution.
+ * Stage uses overflow-hidden — never force nowrap at full body size (clips on md+).
+ * Quote clamp stays above attr max; allow wrap so the full string stays visible.
+ */
+.kinetic-quote-text {
+  white-space: normal;
+  max-width: min(92vw, 42rem);
+  margin-inline: auto;
+  /* Mobile floor under body so long quote wraps cleanly; still > attr max */
+  font-size: clamp(1.35rem, 4.2vw, 2.15rem);
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+  text-wrap: balance;
+}
+
+@media (min-width: 768px) {
+  .kinetic-quote-text {
+    font-size: clamp(1.75rem, 3.6vw, 2.15rem);
+    line-height: 1.25;
+  }
+}
+
+.kinetic-quote .kinetic-dim-text,
+.kinetic-quote .kinetic-type-whisper {
+  /* Effective attribution size; floor ≥ 1rem; must stay < quote floor */
+  font-size: clamp(1rem, 2.4vw, 1.35rem);
+}
+
+@media (min-width: 768px) {
+  .kinetic-quote .kinetic-dim-text,
+  .kinetic-quote .kinetic-type-whisper {
+    font-size: clamp(1rem, 2.4vw, 1.35rem);
+  }
+}
+
+.kinetic-control-btn {
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  padding: 0.375rem 0.75rem;
+  font-size: 0.875rem;
+  color: #fff;
+}
+
+.kinetic-control-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.kinetic-control-link {
+  border-radius: 9999px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.kinetic-control-link:hover {
+  color: #fff;
+}

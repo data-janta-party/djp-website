@@ -1,0 +1,72 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "data-janta-party-website-staging",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-06-25",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  // One-level subdomain for Cloudflare Universal SSL (*.janta.party).
+  // DNS is attached by wrangler deploy; infra grants zone DNS Edit on the
+  // janta.party zone to the CI deploy token (stacks/production/edge/cloudflare/nextjs-cf-template).
+  "workers_dev": false,
+  "routes": [
+    {
+      "pattern": "data-staging.janta.party",
+      "custom_domain": true
+    }
+  ],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "services": [
+    {
+      "binding": "WORKER_SELF_REFERENCE",
+      "service": "data-janta-party-website-staging"
+    }
+  ],
+  "observability": {
+    "enabled": true
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "data-janta-party-db-staging",
+      "database_id": "7f8905dd-5add-4a9b-b666-d2cd27bffe34",
+      "migrations_dir": "drizzle/migrations"
+    }
+  ],
+  "vars": {
+    "NODE_ENV": "production",
+    "CLOUDFLARE_WORKERS_DEPLOY": "1"
+  },
+  "env": {
+    "production": {
+      "name": "data-janta-party-website",
+      "workers_dev": false,
+      "routes": [
+        {
+          "pattern": "data.janta.party",
+          "custom_domain": true
+        }
+      ],
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "data-janta-party-db-production",
+          "database_id": "caf0bde2-2468-46b4-b3c7-839fc159cb57",
+          "migrations_dir": "drizzle/migrations"
+        }
+      ],
+      "services": [
+        {
+          "binding": "WORKER_SELF_REFERENCE",
+          "service": "data-janta-party-website-production"
+        }
+      ],
+      "vars": {
+        "NODE_ENV": "production",
+        "CLOUDFLARE_WORKERS_DEPLOY": "1"
+      }
+    }
+  }
+}

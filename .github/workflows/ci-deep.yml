@@ -1,0 +1,63 @@
+# Non-essential deep checks (jscpd only).
+#
+# Semgrep and CodeQL run on every PR / main push via `.github/workflows/ci.yml`.
+# This workflow keeps copy-paste detection as a nightly/manual hygiene check
+# so it does not block day-to-day feature-branch PRs.
+#
+# - Nightly on `main` (06:00 UTC)
+# - Manually invocable on any branch via workflow_dispatch (`ref` input)
+name: CI deep
+
+on:
+  schedule:
+    # Nightly on the default branch (main)
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch, tag, or SHA to analyze (default main)
+        required: false
+        default: main
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-deep-${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  jscpd:
+    name: Copy-paste detection
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref }}
+          fetch-depth: 1
+
+      - name: Setup dependencies
+        uses: ./.github/actions/setup-deps
+
+      - name: Run jscpd
+        run: pnpm run jscpd:ci
+
+  deep-gate:
+    name: Deep checks gate
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [jscpd]
+    steps:
+      - name: Require deep checks to pass
+        env:
+          JSCPD: ${{ needs.jscpd.result }}
+        run: |
+          set -euo pipefail
+          if [ "$JSCPD" != "success" ]; then
+            echo "Deep checks failed — jscpd=$JSCPD"
+            exit 1
+          fi
+          echo "Deep checks passed"

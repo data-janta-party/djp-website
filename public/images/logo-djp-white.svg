@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 48" role="img" aria-labelledby="djp-logo-white-title">
+  <title id="djp-logo-white-title">data.janta.party — d.j.p (white)</title>
+  <rect width="128" height="48" fill="#ffffff"/>
+  <text
+    x="64"
+    y="32"
+    text-anchor="middle"
+    fill="#000000"
+    font-family="Geist, ui-sans-serif, system-ui, sans-serif"
+    font-size="28"
+    font-weight="600"
+    letter-spacing="-0.04em"
+  >d.j.p</text>
+</svg>
