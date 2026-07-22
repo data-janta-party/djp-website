@@ -1,10 +1,16 @@
 import type { NextConfig } from "next";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { getPostHogHost } from "@/lib/analytics/posthog-config";
 
 const cloudflareWorkerBuild = process.env.CLOUDFLARE_WORKER_BUILD === "true";
 const posthogHost = getPostHogHost().replace(/\/$/, "");
+
+// next.config may be evaluated without a reliable __dirname (ESM). Anchor shims to CWD.
+const repoRoot = path.dirname(fileURLToPath(import.meta.url));
+const posthogJsStub = path.join(repoRoot, "lib/shims/posthog-js.worker-stub.ts");
+const posthogJsReactStub = path.join(repoRoot, "lib/shims/posthog-js-react.worker-stub.ts");
 
 /** Browser hardening headers applied to all HTML/app responses. */
 const securityHeaders = [
@@ -50,6 +56,12 @@ const nextConfig: NextConfig = {
         images: { unoptimized: true },
       }
     : {}),
+  // Next.js 16 defaults to Turbopack. An empty turbopack config is required when
+  // a custom `webpack` function is present (otherwise `next build` / `next dev`
+  // fail with "webpack config and no turbopack config").
+  // Production / Cloudflare CI uses `next build --webpack` so the isServer
+  // PostHog stubs below still apply.
+  turbopack: {},
   async headers() {
     return [
       {
@@ -70,18 +82,17 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-  // Stub posthog only on the server/worker graph. Client assets need the real
-  // browser SDK so consent accept actually captures events on Cloudflare deploys.
+  // Stub posthog only on the server/worker graph (webpack builds). Client assets
+  // need the real browser SDK so consent accept captures events on Workers.
+  // Use `$` exact-match aliases: a bare `posthog-js` alias is a prefix match and
+  // breaks `posthog-js/react` → `…/posthog-js.worker-stub.ts/react`.
   webpack: (config, { isServer }) => {
     if (cloudflareWorkerBuild && isServer) {
       config.resolve = config.resolve ?? {};
       config.resolve.alias = {
         ...config.resolve.alias,
-        "posthog-js": path.resolve(__dirname, "lib/shims/posthog-js.worker-stub.ts"),
-        "posthog-js/react": path.resolve(
-          __dirname,
-          "lib/shims/posthog-js-react.worker-stub.ts",
-        ),
+        "posthog-js$": posthogJsStub,
+        "posthog-js/react$": posthogJsReactStub,
       };
     }
     return config;
