@@ -70,16 +70,10 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-  turbopack: cloudflareWorkerBuild
-    ? {
-        resolveAlias: {
-          "posthog-js": "./lib/shims/posthog-js.worker-stub.ts",
-          "posthog-js/react": "./lib/shims/posthog-js-react.worker-stub.ts",
-        },
-      }
-    : undefined,
-  webpack: (config) => {
-    if (cloudflareWorkerBuild) {
+  // Stub posthog only on the server/worker graph. Client assets need the real
+  // browser SDK so consent accept actually captures events on Cloudflare deploys.
+  webpack: (config, { isServer }) => {
+    if (cloudflareWorkerBuild && isServer) {
       config.resolve = config.resolve ?? {};
       config.resolve.alias = {
         ...config.resolve.alias,

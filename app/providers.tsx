@@ -76,8 +76,16 @@ export function Providers({ children }: { children: ReactNode }) {
     <AnalyticsConsentProvider>
       <PostHogProvider>
         {children}
+        {/* Toaster must mount before AnalyticsConsentToast fires toast.custom */}
+        <Toaster
+          id="app-toaster"
+          position="bottom-center"
+          richColors
+          closeButton
+          // Above film chrome / sticky nav; Sonner defaults can sit under fixed UI.
+          style={{ zIndex: 100_000 }}
+        />
         <AnalyticsConsentToast />
-        <Toaster id="app-toaster" position="bottom-center" richColors closeButton />
       </PostHogProvider>
     </AnalyticsConsentProvider>
   );

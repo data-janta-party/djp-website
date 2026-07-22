@@ -44,6 +44,11 @@ jobs:
             echo "Missing required secret: CLOUDFLARE_API_TOKEN"
             exit 1
           fi
+          if [ -n "${NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN:-}" ]; then
+            echo "PostHog project token: present (consent toast enabled)"
+          else
+            echo "PostHog project token: missing (consent toast disabled)"
+          fi
 
       - name: Essential quality gates
         run: |
