@@ -33,14 +33,18 @@ describe("AnalyticsConsentToast", () => {
     localStorage.clear();
     toastCustom.mockClear();
     toastDismiss.mockClear();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
   });
 
   afterEach(() => {
     localStorage.clear();
+    vi.useRealTimers();
   });
 
   it("prompts with a Sonner toast when consent is undecided", async () => {
     renderToast();
+
+    await vi.advanceTimersByTimeAsync(60);
 
     await waitFor(() => {
       expect(toastCustom).toHaveBeenCalledTimes(1);
@@ -50,6 +54,8 @@ describe("AnalyticsConsentToast", () => {
   it("does not prompt when consent is already stored", async () => {
     localStorage.setItem(ANALYTICS_CONSENT_KEY, "accepted");
     renderToast();
+
+    await vi.advanceTimersByTimeAsync(60);
 
     await waitFor(() => {
       expect(toastDismiss).toHaveBeenCalled();
