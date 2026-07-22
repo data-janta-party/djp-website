@@ -42,8 +42,7 @@ export function AnalyticsConsentToast() {
               Analytics cookies
             </p>
             <p id="analytics-consent-description" className="text-sm text-muted-foreground">
-              We use PostHog to understand how volunteers use data.janta.party. You can decline —
-              no tracking cookies are set until you accept.
+              We use external analytics cookies to understand how visitors interact with our site. You can decline — no tracking cookies are set until you accept.
             </p>
           </div>
           <div id="analytics-consent-actions" className="flex flex-wrap justify-end gap-2">
