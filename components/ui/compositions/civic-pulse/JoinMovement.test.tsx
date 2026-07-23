@@ -44,7 +44,7 @@ describe('JoinMovement', () => {
 
     expect(screen.getByRole('link', { name: /Open GitHub/i })).toHaveAttribute(
       'href',
-      'https://github.com/datajantaparty',
+      'https://github.com/data-janta-party',
     );
     expect(screen.getByRole('link', { name: /^Volunteer$/i })).toHaveAttribute(
       'href',

@@ -25,7 +25,7 @@ export const contributeLinkMeta: readonly ContributeLinkMeta[] = [
   {
     kind: 'code',
     id: 'contribute-code',
-    href: 'https://github.com/datajantaparty',
+    href: 'https://github.com/data-janta-party',
     external: true,
   },
   {

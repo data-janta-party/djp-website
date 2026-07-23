@@ -30,6 +30,9 @@
     "estree",
     "@typescript-eslint/types"
   ],
+  "ignore": [
+    "lib/shims/**"
+  ],
   "ignoreIssues": {
     "lib/schemas/api/common.ts": ["exports", "types"],
     "components/ui/shadcn/badge.tsx": ["exports"],

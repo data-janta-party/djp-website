@@ -57,4 +57,3 @@ find test-results -name "*.png" -type f | sort -r | head -30
 
 3. Checklist: readable contrast on dark surfaces, glass/tokens match design, nothing clipped, alignment, intentional interactive states.
 
-See also `.grok/skills/template-e2e/SKILL.md`.

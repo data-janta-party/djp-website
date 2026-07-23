@@ -31,7 +31,8 @@
     {
       "binding": "DB",
       "database_name": "data-janta-party-db-staging",
-      "database_id": "7f8905dd-5add-4a9b-b666-d2cd27bffe34",
+      // Real UUID on account 0f90188c1f9c179ce6caeadc3e441e6d (old id 7f8905dd… no longer exists).
+      "database_id": "54c1f30d-3e49-4d05-9618-f9c976a9faf6",
       "migrations_dir": "drizzle/migrations"
     }
   ],
@@ -53,14 +54,16 @@
         {
           "binding": "DB",
           "database_name": "data-janta-party-db-production",
-          "database_id": "caf0bde2-2468-46b4-b3c7-839fc159cb57",
+          // Real UUID on account 0f90188c1f9c179ce6caeadc3e441e6d (old id caf0bde2… no longer exists).
+          "database_id": "0b99b0f8-9632-4933-a10e-019a49caa89b",
           "migrations_dir": "drizzle/migrations"
         }
       ],
       "services": [
         {
+          // Must match production worker `name` above (self-binding for OpenNext).
           "binding": "WORKER_SELF_REFERENCE",
-          "service": "data-janta-party-website-production"
+          "service": "data-janta-party-website"
         }
       ],
       "vars": {

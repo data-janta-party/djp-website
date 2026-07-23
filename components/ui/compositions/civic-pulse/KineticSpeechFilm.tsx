@@ -56,6 +56,7 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from '@/components/ui/shadcn/hover-card';
+import { useScreenWakeLock } from '@/hooks/useScreenWakeLock';
 import { cn } from '@/lib/utils/index';
 
 /** Visual-only in/out — never advances the beat clock. */
@@ -205,6 +206,9 @@ export function KineticSpeechFilm({
   );
   /** DEV scrubber: current 1-based slide (0 = not started). */
   const [slideIndex, setSlideIndex] = useState(0);
+
+  // Keep mobile screens awake for the ~2.5 min soundtrack (Screen Wake Lock API).
+  useScreenWakeLock(phase === 'playing');
 
   const systemReduced = useSyncExternalStore(
     subscribeReducedMotion,

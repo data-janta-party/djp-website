@@ -26,7 +26,6 @@ Read this before implementing or testing UI in this repo.
 - Intrinsic DOM nodes need stable `id`s (`template-structure/require-element-id`)
 - Component `*Props` should extend `HTMLAttributes` / `ComponentProps` (`require-html-attributes-props`)
 - Reusable primitives: prefer `id={id ?? useId()}` — never static `id={props.id ?? "tpl-…"}` (`pnpm verify:element-ids`)
-- Skill: `.grok/skills/grep-friendly-html`
 
 ## UI stack
 
@@ -56,10 +55,6 @@ Scaffold missing files: `pnpm storybook:generate`, `pnpm test:generate-ui`.
 | Path | Role |
 |------|------|
 | `AGENTS.md` | This guide |
-| `.grok/skills/template-rules` | Layout/ESLint/Knip fix loop |
-| `.grok/skills/template-e2e` | Playwright + screenshot review |
-| `.grok/skills/grep-friendly-html` | Stable DOM ids |
-| `.agents/skills/*` | shadcn + Stitch design skills (locked) |
 
 ## Pre-commit
 
