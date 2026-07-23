@@ -13,7 +13,7 @@ export const hi: Messages = {
     main: 'मुख्य नेविगेशन',
     volunteer: 'स्वयंसेवक बनें',
     language: 'भाषा',
-    digitalSpeech: 'डिजिटल भाषण',
+    digitalSpeech: 'भाषण',
   },
   common: {
     skipToMain: 'मुख्य सामग्री पर जाएँ',
@@ -61,6 +61,12 @@ export const hi: Messages = {
         description: 'संगठन, शोध, डिज़ाइन, क़ानून, संचालन — जो जानते हैं लाएँ।',
         cta: 'स्वयंसेवक बनें',
       },
+      ideas: {
+        title: 'विचारों से योगदान',
+        description:
+          'नीति पर चर्चा करें, प्रस्ताव साझा करें, और DataJantaParty सब-रेडिट पर एजेंडा गढ़ें।',
+        cta: 'Reddit खोलें',
+      },
     },
   },
   volunteer: {
@@ -74,12 +80,19 @@ export const hi: Messages = {
     fields: {
       name: { label: 'पूरा नाम', placeholder: 'आपका नाम' },
       email: { label: 'ईमेल', placeholder: 'you@example.com' },
-      phone: { label: 'फ़ोन', placeholder: '+91 98765 43210' },
+      phone: { label: 'फ़ोन', placeholder: '9876543210' },
       city: { label: 'शहर', placeholder: 'आपका शहर' },
       interest: {
         label: 'आप कैसे मदद करेंगे?',
         placeholder: 'संगठन, डेटा, कोड, आउटरीच, संचालन…',
       },
+    },
+    errors: {
+      form: 'कृपया अपनी जानकारी जाँचें और फिर कोशिश करें।',
+      required: 'यह फ़ील्ड आवश्यक है।',
+      invalidEmail: 'मान्य ईमेल पता दर्ज करें।',
+      invalidPhone: 'मान्य फ़ोन नंबर दर्ज करें (केवल अंक और + - ( ))।',
+      tooLong: 'यह मान बहुत लंबा है।',
     },
   },
   footer: {

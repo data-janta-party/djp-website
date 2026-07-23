@@ -19,9 +19,14 @@ test.describe('CivicPulseHomePage · App', () => {
 
     await expect(page.getByText(/Contribute with code/i)).toBeAttached();
     await expect(page.getByText(/Contribute with your skills/i)).toBeAttached();
+    await expect(page.getByText(/Contribute with your ideas/i)).toBeAttached();
     await expect(page.getByRole('link', { name: /Open GitHub/i })).toHaveAttribute(
       'href',
       'https://github.com/data-janta-party',
+    );
+    await expect(page.getByRole('link', { name: /Open Reddit/i })).toHaveAttribute(
+      'href',
+      'https://www.reddit.com/r/DataJantaParty',
     );
 
     await page.locator('#volunteer').scrollIntoViewIfNeeded();
@@ -37,8 +42,8 @@ test.describe('CivicPulseHomePage · App', () => {
 
   test('language switcher changes home copy', async ({ page }) => {
     await expect(page.getByText(/India deserves better options/i)).toBeVisible();
-    await page.getByLabel(/Language/i).click();
-    await page.getByRole('option', { name: 'हिन्दी' }).click();
+    await page.getByRole('button', { name: /Language/i }).click();
+    await page.getByRole('menuitem', { name: 'हिन्दी' }).click();
     await expect(page.getByText(/भारत बेहतर विकल्पों का हकदार है/i)).toBeVisible();
   });
 

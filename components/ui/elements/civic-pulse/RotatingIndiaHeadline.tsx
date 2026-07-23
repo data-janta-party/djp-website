@@ -22,8 +22,8 @@ export interface RotatingIndiaHeadlineProps extends React.HTMLAttributes<HTMLDiv
 
 /**
  * Sentence-style line: “Let's build {Transparent|Safer|…} India.”
- * Slot width follows the *active* word so short adjectives don’t leave a hole
- * before “India.” (reads as a real sentence, not a fixed-width slot).
+ * Mobile: two lines — “Let's build” then “{adjective} India.”
+ * Desktop: single line. Trail stays plain white (same as before).
  */
 export function RotatingIndiaHeadline({
   className,
@@ -103,46 +103,64 @@ export function RotatingIndiaHeadline({
       id="join-headline"
       aria-label={ariaLabel}
       className={cn(
-        'join-india-headline text-4xl font-light tracking-tight text-balance text-white md:text-5xl',
+        'join-india-headline text-4xl font-light tracking-tight text-white md:text-5xl',
         className,
       )}
     >
-      <span className="join-india-lead text-white" id="tpl-components-ui-elements-civic-pulse-rotating-india-headline-l108-c7">{lead}</span>
-      {/* single normal spaces → reads as one sentence */}
-      <span className="join-india-gap" id="tpl-components-ui-elements-civic-pulse-rotating-india-headline-l110-c7"> </span>
+      {/* Line 1 on mobile: “Let's build” — single line with adjective+India from md up */}
+      <span className="join-india-lead block text-white md:inline" id="join-india-lead">
+        {lead}
+      </span>
+      <span className="join-india-gap hidden md:inline" id="join-india-gap-lead" aria-hidden>
+        {' '}
+      </span>
+      {/* Line 2 on mobile: “{adjective} India.” */}
       <span
-        className="join-word-slot relative inline-block align-baseline text-white"
-        style={slotWidth != null ? { width: slotWidth } : undefined} id="tpl-components-ui-elements-civic-pulse-rotating-india-headline-l111-c7"
+        className="join-india-line2 block whitespace-nowrap md:inline"
+        id="join-india-line2"
       >
         <span
-          ref={measureRef}
-          className="invisible inline-block whitespace-nowrap font-medium text-white"
-          aria-hidden id="tpl-components-ui-elements-civic-pulse-rotating-india-headline-l115-c9"
+          className="join-word-slot relative inline-block align-baseline text-white"
+          style={slotWidth != null ? { width: slotWidth } : undefined}
+          id="join-word-slot"
         >
-          {current}
-        </span>
-        {previous != null && previous !== current ? (
           <span
-            key={`out-${prevIndex}-${previous}`}
-            className="join-word join-word-out absolute top-0 left-0 whitespace-nowrap font-medium text-white"
-            aria-hidden id="tpl-components-ui-elements-civic-pulse-rotating-india-headline-l123-c11"
+            ref={measureRef}
+            className="invisible inline-block whitespace-nowrap font-medium text-white"
+            aria-hidden
+            id="join-word-measure"
           >
-            {previous}
+            {current}
           </span>
-        ) : null}
-        <span
-          key={`in-${index}-${current}`}
-          className={cn(
-            'join-word absolute top-0 left-0 whitespace-nowrap font-medium text-white',
-            !reduced && 'join-word-in',
-          )}
-          aria-hidden id="tpl-components-ui-elements-civic-pulse-rotating-india-headline-l131-c9"
-        >
-          {current}
+          {previous != null && previous !== current ? (
+            <span
+              key={`out-${prevIndex}-${previous}`}
+              className="join-word join-word-out absolute top-0 left-0 whitespace-nowrap font-medium text-white"
+              aria-hidden
+              id="join-word-out"
+            >
+              {previous}
+            </span>
+          ) : null}
+          <span
+            key={`in-${index}-${current}`}
+            className={cn(
+              'join-word absolute top-0 left-0 whitespace-nowrap font-medium text-white',
+              !reduced && 'join-word-in',
+            )}
+            aria-hidden
+            id="join-word-in"
+          >
+            {current}
+          </span>
+        </span>
+        <span className="join-india-gap" id="join-india-gap-trail" aria-hidden>
+          {' '}
+        </span>
+        <span className="join-india-trail text-white" id="join-india-trail">
+          {trail}
         </span>
       </span>
-      <span className="join-india-gap" id="tpl-components-ui-elements-civic-pulse-rotating-india-headline-l142-c7"> </span>
-      <span className="join-india-trail text-white" id="tpl-components-ui-elements-civic-pulse-rotating-india-headline-l143-c7">{trail}</span>
     </h2>
   );
 }

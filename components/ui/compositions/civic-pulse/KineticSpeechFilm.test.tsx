@@ -156,15 +156,31 @@ describe('KineticSpeechFilm', () => {
         expect(dot.className).toMatch(/kinetic-loading-dot/);
       });
     });
-    // Empty-suffix Still waiting: shared dots after prefix in suffix-run
-    const waitingDots = document.getElementById('a2-waiting-dots');
-    expect(waitingDots).toBeInTheDocument();
-    expect(waitingDots).toHaveClass('kinetic-type-close');
-    expect(waitingDots?.querySelectorAll('[data-k-dot]')).toHaveLength(3);
-    expect(waitingDots?.parentElement).toHaveClass('kinetic-sticky-suffix-run');
-    expect(waitingDots?.textContent).toBe('...');
+    // Still waiting: same step-local ellipsis path as Deadline (suffix slot + body-size dots)
+    expect(document.getElementById('a2-waiting-prefix')).toHaveClass('kinetic-type-body');
+    expect(document.getElementById('a2-deadline-sticky-prefix')).toHaveClass('kinetic-type-body');
+    const waitingSharedDots = document.getElementById('a2-waiting-dots');
+    expect(waitingSharedDots).toBeInTheDocument();
+    expect(waitingSharedDots).toHaveClass('hidden');
+    const waitingStepDots = document.querySelectorAll(
+      '#a2-waiting [data-k-sticky-suffix] .kinetic-loading-dots',
+    );
+    expect(waitingStepDots.length).toBe(1);
+    waitingStepDots.forEach((group) => {
+      expect(group).toHaveClass('kinetic-type-body');
+      expect(group.querySelectorAll('[data-k-dot]')).toHaveLength(3);
+      expect(group.textContent).toBe('...');
+      expect(group.parentElement?.hasAttribute('data-k-sticky-suffix')).toBe(true);
+    });
+    const waitingSizer = document.querySelector(
+      '#a2-waiting .kinetic-sticky-suffix-slot .invisible',
+    );
+    expect(waitingSizer).toBeInTheDocument();
+    expect(waitingSizer).toHaveClass('kinetic-type-body');
+    expect(waitingSizer?.textContent).toBe('...');
+    expect(document.getElementById('a2-waiting-s0')?.textContent).toBe('...');
     // Short morph stickies: single-line nowrap at all breakpoints (no mobile wrap path)
-    for (const id of ['a2-deadline-sticky', 'a4-lack', 'a5-every'] as const) {
+    for (const id of ['a2-deadline-sticky', 'a5-every'] as const) {
       const sticky = document.getElementById(id);
       expect(sticky).toBeInTheDocument();
       expect(sticky).toHaveClass('flex-nowrap');
@@ -188,17 +204,11 @@ describe('KineticSpeechFilm', () => {
     expect(document.getElementById('a2-deadline-sticky')).toHaveClass(
       'max-w-[min(92vw,36ch)]',
     );
-    expect(document.getElementById('a4-lack')?.className).not.toMatch(
-      /md:max-w-none|md:w-max|md:whitespace-nowrap/,
-    );
-    // Prefix carries a normal word space (NBSP) so "Deadline promised" / "lack intelligence"
+    // Prefix carries a normal word space (NBSP) so "Deadline promised" reads as two words
     const deadlinePrefix = document.getElementById('a2-deadline-sticky-prefix');
-    const lackPrefix = document.getElementById('a4-lack-prefix');
     const waitingPrefix = document.getElementById('a2-waiting-prefix');
     expect(deadlinePrefix?.textContent?.endsWith('\u00A0')).toBe(true);
     expect(deadlinePrefix?.textContent?.startsWith('Deadline')).toBe(true);
-    expect(lackPrefix?.textContent?.endsWith('\u00A0')).toBe(true);
-    expect(lackPrefix?.textContent).toMatch(/India doesn't lack\u00A0$/);
     // Empty-suffix sticky: no NBSP so "Still waiting..." stays flush
     expect(waitingPrefix?.textContent).toBe('Still waiting');
     expect(waitingPrefix?.textContent?.endsWith('\u00A0')).toBe(false);
@@ -590,7 +600,6 @@ describe('KineticSpeechFilm', () => {
     expect(screen.getByText(/Chalta Hai/i)).toBeInTheDocument();
     expect(screen.queryByText(/WHY\?/i)).not.toBeInTheDocument();
     expect(screen.getByText(/Delayed/i)).toBeInTheDocument();
-    expect(screen.getByText(/We are the change/i)).toBeInTheDocument();
     expect(screen.getByText(/Deadline promised/i)).toBeInTheDocument();
     expect(screen.getByText(/Still waiting/i)).toBeInTheDocument();
     expect(screen.getByText(/Left\./i)).toBeInTheDocument();
@@ -605,13 +614,15 @@ describe('KineticSpeechFilm', () => {
     expect(screen.queryByText(/The pollution doesn't care/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/The delayed ambulance doesn't care/i)).not.toBeInTheDocument();
     expect(screen.getByText(/Bad governance affects everyone/i)).toBeInTheDocument();
-    expect(screen.getByText(/Bad governance affects everyone/i)).toBeInTheDocument();
-    expect(screen.getByText(/India doesn't lack intelligence/i)).toBeInTheDocument();
     expect(screen.getByText(/Enough is enough/i)).toBeInTheDocument();
-    // Reduced-motion transcript flattens sticky as "We want <suffix>" lines + now pair
-    expect(screen.getByText(/We want development,/i)).toBeInTheDocument();
-    expect(screen.getByText(/We want no corruption,/i)).toBeInTheDocument();
-    expect(screen.getByText(/We want accountability,/i)).toBeInTheDocument();
+    // Demand: solo "We want" + rapid list + now pair (not sticky morph lines)
+    expect(screen.getByText(/We want/i)).toBeInTheDocument();
+    expect(screen.getByText(/development/i)).toBeInTheDocument();
+    expect(screen.getByText(/no corruption/i)).toBeInTheDocument();
+    expect(screen.getByText(/accountability/i)).toBeInTheDocument();
+    expect(screen.getByText(/Every project/i)).toBeInTheDocument();
+    expect(screen.getByText(/Public\./i)).toBeInTheDocument();
+    expect(screen.getByText(/We are the change/i)).toBeInTheDocument();
     // Cough stagger: solo prefix then full phrase
     expect(document.getElementById('kinetic-transcript-visible')?.textContent).toMatch(
       /Cough\nCough Cough/,
