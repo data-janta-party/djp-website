@@ -21,7 +21,7 @@ test.describe('CivicPulseHomePage · App', () => {
     await expect(page.getByText(/Contribute with your skills/i)).toBeAttached();
     await expect(page.getByRole('link', { name: /Open GitHub/i })).toHaveAttribute(
       'href',
-      'https://github.com/datajantaparty',
+      'https://github.com/data-janta-party',
     );
 
     await page.locator('#volunteer').scrollIntoViewIfNeeded();
