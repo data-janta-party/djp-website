@@ -58,6 +58,37 @@ body {
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }
 
+/*
+ * Tailwind v4 uses cursor: default on buttons. Restore pointer for interactive UI
+ * (language switcher, menu items, links, etc.).
+ */
+@layer base {
+  a[href],
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']),
+  [role='menuitem']:not([data-disabled]),
+  [role='option']:not([data-disabled]),
+  [role='tab']:not([aria-disabled='true']),
+  [role='link']:not([aria-disabled='true']),
+  summary,
+  label[for],
+  select:not(:disabled),
+  input[type='submit']:not(:disabled),
+  input[type='button']:not(:disabled),
+  input[type='reset']:not(:disabled),
+  input[type='checkbox']:not(:disabled),
+  input[type='radio']:not(:disabled),
+  input[type='file']:not(:disabled) {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  [aria-disabled='true'],
+  [data-disabled] {
+    cursor: not-allowed;
+  }
+}
+
 .skip-link {
   position: absolute;
   width: 1px;
@@ -289,6 +320,31 @@ html.story-snap #civic-pulse-footer {
 /* Kinetic speech film — immersive chrome + mask type */
 html.kinetic-speech-active #civic-pulse-footer {
   display: none;
+}
+
+/* Initial trailer buffer / first play — white ring on pure black stage */
+@keyframes kinetic-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.kinetic-spinner {
+  box-sizing: border-box;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: kinetic-spin 0.75s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kinetic-spinner {
+    animation: none;
+    border-color: rgba(255, 255, 255, 0.55);
+    opacity: 0.85;
+  }
 }
 
 html.kinetic-speech-active #civic-pulse-navbar {

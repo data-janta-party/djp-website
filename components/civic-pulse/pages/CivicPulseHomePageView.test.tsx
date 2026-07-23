@@ -29,10 +29,15 @@ describe('CivicPulseHomePageView', () => {
     );
     expect(screen.getByText(/Contribute with code/i)).toBeInTheDocument();
     expect(screen.getByText(/Contribute with your skills/i)).toBeInTheDocument();
+    expect(screen.getByText(/Contribute with your ideas/i)).toBeInTheDocument();
     expect(screen.queryByText(/Contribute with data/i)).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Open GitHub/i })).toHaveAttribute(
       'href',
       'https://github.com/data-janta-party',
+    );
+    expect(screen.getByRole('link', { name: /Open Reddit/i })).toHaveAttribute(
+      'href',
+      'https://www.reddit.com/r/DataJantaParty',
     );
     expect(screen.getByRole('heading', { name: /Stand with us/i })).toBeInTheDocument();
     expect(screen.getByLabelText(/Full name/i)).toBeInTheDocument();

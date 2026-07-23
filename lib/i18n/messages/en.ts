@@ -13,7 +13,7 @@ export const en: Messages = {
     main: 'Main navigation',
     volunteer: 'Volunteer',
     language: 'Language',
-    digitalSpeech: 'Digital speech',
+    digitalSpeech: 'Speech',
   },
   common: {
     skipToMain: 'Skip to main content',
@@ -63,6 +63,12 @@ export const en: Messages = {
         description: 'Organizing, research, design, law, ops — bring what you know.',
         cta: 'Volunteer',
       },
+      ideas: {
+        title: 'Contribute with your ideas',
+        description:
+          'Debate policy, share proposals, and shape the agenda on the DataJantaParty subreddit.',
+        cta: 'Open Reddit',
+      },
     },
   },
   volunteer: {
@@ -76,12 +82,19 @@ export const en: Messages = {
     fields: {
       name: { label: 'Full name', placeholder: 'Your name' },
       email: { label: 'Email', placeholder: 'you@example.com' },
-      phone: { label: 'Phone', placeholder: '+91 98765 43210' },
+      phone: { label: 'Phone', placeholder: '9876543210' },
       city: { label: 'City', placeholder: 'Your city' },
       interest: {
         label: 'How will you help?',
         placeholder: 'Organizing, data, code, outreach, operations…',
       },
+    },
+    errors: {
+      form: 'Please check your details and try again.',
+      required: 'This field is required.',
+      invalidEmail: 'Enter a valid email address.',
+      invalidPhone: 'Enter a valid phone number (digits and + - ( ) only).',
+      tooLong: 'This value is too long.',
     },
   },
   footer: {

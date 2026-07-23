@@ -12,12 +12,23 @@ vi.mock('next/link', () => ({
 }));
 
 describe('CivicPulseFooter', () => {
-  it('renders brand footer content', () => {
+  it('renders brand logo, footer nav, contact link, and copyright', () => {
     render(<CivicPulseFooter />);
+
+    expect(document.getElementById('civic-pulse-footer')).toBeInTheDocument();
     expect(screen.getByLabelText('data.janta.party')).toBeInTheDocument();
     expect(screen.getByText('d.j.p')).toBeInTheDocument();
-    expect(screen.getByText(/© 2026 data.janta.party/i)).toBeInTheDocument();
-    expect(screen.getByText('Privacy')).toBeInTheDocument();
-    expect(screen.getByText('Contact')).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Footer navigation' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Contact/i })).toHaveAttribute(
+      'href',
+      'mailto:datajantaparty@gmail.com',
+    );
+    expect(screen.getByText('© 2026 data.janta.party.')).toBeInTheDocument();
+  });
+
+  it('applies optional className to the footer', () => {
+    render(<CivicPulseFooter className="extra-footer-class" />);
+
+    expect(document.getElementById('civic-pulse-footer')).toHaveClass('extra-footer-class');
   });
 });

@@ -104,9 +104,10 @@ describe('kinetic speech beat-locked budget', () => {
     // short a2 spam flood + mid-film project-delays cards; sticky co-plant + cough prefixHold + a6-abki
     // cold-open Chalta pairs: footpath/garbage/rich/poor/dengue/food/flood-cities (+ office/bribe) before VIP/AQI
     // bridge collapse vignette removed; food + flood-cities pairs; kick-snaps re-settle
-    // Imagine reverse scenes (garbage pair + AQI/project sticky-pairs + Public/Honest/On time)
+    // Imagine reverse scenes (slightly longer garbage/AQI/project/Every) + a6-change
     // mid-film project-delays before a2-flood shifts kick-snaps; pin so drift fails early
-    expect(layoutKineticSpeech().endBeat).toBe(298);
+    // Lack act cut + Demand rework (We want line + rapid list)
+    expect(layoutKineticSpeech().endBeat).toBe(293);
     // Visual endcard is short; full film spans to natural track end so music is not cut
     expect(kineticSpeechEndcardHoldSec).toBe(11);
     expect(kineticSpeechVisualTailSec).toBe(0.4);
@@ -199,7 +200,7 @@ describe('kinetic speech beat-locked budget', () => {
   it('does not put multi-word phrases on slam / slam-xl', () => {
     for (const beat of getAllKineticBeats()) {
       if (beat.kind === 'line' && (beat.role === 'slam' || beat.role === 'slam-xl')) {
-        // Wide thesis punches (“We are the change.”) may use slam weight with multi-word copy
+        // Wide thesis punches (“It is time for action.”) may use slam weight with multi-word copy
         if (beat.wide) continue;
         expect(wordCount(beat.text)).toBeLessThanOrEqual(2);
       }
@@ -251,9 +252,12 @@ describe('kinetic speech beat-locked budget', () => {
     expect(ids).not.toContain('a3-pollution');
     expect(ids).not.toContain('a3-ambulance');
     expect(ids).toContain('a3-equal');
-    expect(ids).toContain('a4-lack');
+    // Lack act removed — Demand opens after Divide
+    expect(ids).not.toContain('a4-lack');
+    expect(ids).not.toContain('a4-lack-hit');
     expect(ids).toContain('a4b-enough');
     expect(ids).toContain('a4b-want');
+    expect(ids).toContain('a4b-want-list');
     expect(ids).toContain('a4b-now');
     expect(ids).not.toContain('a4b-dev');
     expect(ids).not.toContain('a4b-gov');
@@ -274,6 +278,7 @@ describe('kinetic speech beat-locked budget', () => {
     expect(ids).not.toContain('a5-accountable');
     expect(ids).toContain('a6-change');
     expect(ids).toContain('a6-gandhi');
+    expect(ids).not.toContain('a6-tagore');
     expect(ids).not.toContain('a6-gandhi-attr');
     expect(ids).toContain('a6-virtues');
     expect(ids).toContain('a6-india');
@@ -392,8 +397,8 @@ describe('kinetic speech beat-locked budget', () => {
     }
   });
 
-  it('lack / every / deadline / demand stickies stay single-line when possible', () => {
-    for (const id of ['a4-lack', 'a5-every', 'a2-deadline-sticky', 'a2-waiting', 'a4b-want']) {
+  it('every / deadline / waiting stickies stay single-line when possible', () => {
+    for (const id of ['a5-every', 'a2-deadline-sticky', 'a2-waiting']) {
       const sticky = getAllKineticBeats().find((b) => b.id === id);
       expect(sticky && sticky.kind === 'sticky').toBe(true);
       if (sticky && sticky.kind === 'sticky') {
@@ -402,11 +407,27 @@ describe('kinetic speech beat-locked budget', () => {
     }
   });
 
-  it('carries the change thesis', () => {
+  it('carries the change answer and action thesis after Gandhi', () => {
+    const ids = getAllKineticBeats().map((b) => b.id);
+    expect(ids.indexOf('a6-change')).toBe(ids.indexOf('a6-gandhi') + 1);
+    expect(ids.indexOf('a6-action')).toBe(ids.indexOf('a6-change') + 1);
     const change = getAllKineticBeats().find(
       (beat) => beat.kind === 'line' && beat.id === 'a6-change',
     );
     expect(change && change.kind === 'line' && change.text).toBe('We are the change.');
+    if (change && change.kind === 'line') {
+      expect(change.role).toBe('slam');
+      expect(change.wide).toBe(true);
+      expect(change.hold).toBe(holdFor('We are the change.', 'thesis'));
+    }
+    const action = getAllKineticBeats().find(
+      (beat) => beat.kind === 'line' && beat.id === 'a6-action',
+    );
+    expect(action && action.kind === 'line' && action.text).toBe('It is time for action.');
+    const build = getAllKineticBeats().find(
+      (beat) => beat.kind === 'line' && beat.id === 'a6-build',
+    );
+    expect(build && build.kind === 'line' && build.text).toBe("Let's build a");
   });
 
   it('Imagine act is lived reverse scenes + Every sticky + Public/Honest/On time (not jargon stack)', () => {
@@ -449,8 +470,8 @@ describe('kinetic speech beat-locked budget', () => {
       expect(garbageBeat.leadRole).toBe('body');
       expect(garbageBeat.hitRole).toBe('close');
       expect(garbageBeat.wide).toBe(true);
-      expect(garbageBeat.holdLead).toBe(b(2));
-      expect(garbageBeat.holdHit).toBe(b(2));
+      expect(garbageBeat.holdLead).toBe(b(3));
+      expect(garbageBeat.holdHit).toBe(b(3));
     }
 
     const aqiBeat = byId['a5-aqi'];
@@ -465,10 +486,10 @@ describe('kinetic speech beat-locked budget', () => {
         'Source detected.',
         'Issue fixed.',
       ]);
-      expect(aqiBeat.steps.map((s) => s.hold)).toEqual([b(1), b(1.5), b(1.5)]);
+      expect(aqiBeat.steps.map((s) => s.hold)).toEqual([b(1.5), b(2), b(2)]);
       // No color ramp — monochrome Imagine (only a1-aqi may color)
       expect(aqiBeat.steps.every((s) => s.color == null)).toBe(true);
-      expect(beatDurationBeats(aqiBeat)).toBe(5);
+      expect(beatDurationBeats(aqiBeat)).toBe(6.5);
     }
 
     const projectBeat = byId['a5-project'];
@@ -482,8 +503,8 @@ describe('kinetic speech beat-locked budget', () => {
         'Updated monthly.',
         'Project finished.',
       ]);
-      expect(projectBeat.steps.every((s) => s.hold === b(1.5))).toBe(true);
-      expect(beatDurationBeats(projectBeat)).toBe(7);
+      expect(projectBeat.steps.every((s) => s.hold === b(2))).toBe(true);
+      expect(beatDurationBeats(projectBeat)).toBe(9);
     }
 
     const everyBeat = byId['a5-every'];
@@ -496,9 +517,9 @@ describe('kinetic speech beat-locked budget', () => {
         'deadline.',
         'rupee.',
       ]);
-      expect(everyBeat.steps.every((s) => s.hold === b(1))).toBe(true);
+      expect(everyBeat.steps.every((s) => s.hold === b(1.5))).toBe(true);
       expect(everyBeat.exitHold ?? 0).toBe(0);
-      expect(beatDurationBeats(everyBeat)).toBe(3);
+      expect(beatDurationBeats(everyBeat)).toBe(4.5);
     }
 
     const publicBeat = byId['a5-public'];
@@ -534,22 +555,26 @@ describe('kinetic speech beat-locked budget', () => {
     expect(transcript).not.toMatch(/open source/i);
   });
 
-  it('Demand act lands after Lack and before Imagine with sticky We want morph', () => {
+  it('Demand act lands after Divide and before Imagine with We want + rapid list', () => {
     const ids = getAllKineticBeats().map((b) => b.id);
-    const lackHit = ids.indexOf('a4-lack-hit');
+    const equal = ids.indexOf('a3-equal');
     const enough = ids.indexOf('a4b-enough');
     const want = ids.indexOf('a4b-want');
+    const wantList = ids.indexOf('a4b-want-list');
     const now = ids.indexOf('a4b-now');
     const imagine = ids.indexOf('a5-open');
-    expect(lackHit).toBeGreaterThanOrEqual(0);
-    expect(enough).toBeGreaterThan(lackHit);
+    expect(equal).toBeGreaterThanOrEqual(0);
+    expect(enough).toBeGreaterThan(equal);
     expect(want).toBeGreaterThan(enough);
-    expect(now).toBeGreaterThan(want);
+    expect(wantList).toBeGreaterThan(want);
+    expect(now).toBeGreaterThan(wantList);
     expect(imagine).toBeGreaterThan(now);
-    // Hardcut Lack → Demand → Imagine (no breath pads)
+    // Hardcut Divide → Demand → Imagine (no breath pads, no Lack act)
+    expect(ids).not.toContain('a4-lack');
+    expect(ids).not.toContain('a4-lack-hit');
     expect(ids).not.toContain('a4-breath');
     expect(ids).not.toContain('a4b-breath');
-    // Replaced three full-sentence flashes with sticky morph + final punch
+    // Replaced sticky morph with solo We want + rapid three words
     expect(ids).not.toContain('a4b-dev');
     expect(ids).not.toContain('a4b-gov');
     expect(ids).not.toContain('a4b-account');
@@ -569,19 +594,25 @@ describe('kinetic speech beat-locked budget', () => {
     }
 
     const wantBeat = byId['a4b-want'];
-    expect(wantBeat?.kind).toBe('sticky');
-    if (wantBeat?.kind === 'sticky') {
-      expect(wantBeat.prefix).toBe('We want');
-      expect(wantBeat.inline).toBe(true);
+    expect(wantBeat?.kind).toBe('line');
+    if (wantBeat?.kind === 'line') {
+      expect(wantBeat.text).toBe('We want');
+      expect(wantBeat.role).toBe('close');
       expect(wantBeat.wide).toBe(true);
-      expect(wantBeat.exitHold ?? 0).toBe(0);
-      expect(wantBeat.steps.map((s) => s.suffix)).toEqual([
-        'development,',
-        'no corruption,',
-        'accountability,',
+      expect(wantBeat.heartbeat).toBe(true);
+      expect(wantBeat.hold).toBe(holdFor('We want', 'body'));
+    }
+
+    const wantListBeat = byId['a4b-want-list'];
+    expect(wantListBeat?.kind).toBe('rapid');
+    if (wantListBeat?.kind === 'rapid') {
+      expect(wantListBeat.words).toEqual([
+        'development',
+        'no corruption',
+        'accountability',
       ]);
-      // Equal short morph holds (2 beats each)
-      expect(wantBeat.steps.map((s) => s.hold)).toEqual([2, 2, 2]);
+      expect(wantListBeat.holdEach).toBe(2);
+      expect(wantListBeat.role).toBe('body');
     }
 
     const nowBeat = byId['a4b-now'];
@@ -678,8 +709,12 @@ describe('kinetic speech beat-locked budget', () => {
     expect(transcript).toMatch(/Bengaluru Metro/);
     expect(transcript).toMatch(/Delayed\./);
     expect(transcript).toMatch(/5 years/);
+    expect(transcript).toMatch(/4 years/);
     expect(transcript).toMatch(/3–5 years/);
     expect(transcript).toMatch(/18 years/);
+    // Prefer single upper figure over ranges where called out
+    expect(transcript).not.toMatch(/3–4 years/);
+    expect(transcript).not.toMatch(/4–5 years/);
     expect(transcript).toMatch(/1000\+ more\./);
     // Source labels only appear via endcard Sources word, not mid-film dump.
     // Anchor a2-flood after "1000+ more." so we do not hit act1's CHALTA HAI first.
@@ -827,7 +862,7 @@ describe('kinetic speech beat-locked budget', () => {
   });
 
   it('visible-suffix stickies co-plant prefix with first suffix (no solo prefix beat)', () => {
-    for (const id of ['a2-deadline-sticky', 'a4-lack', 'a4b-want', 'a5-every']) {
+    for (const id of ['a2-deadline-sticky', 'a5-every']) {
       const sticky = getAllKineticBeats().find((b) => b.id === id);
       expect(sticky && sticky.kind === 'sticky').toBe(true);
       if (sticky && sticky.kind === 'sticky') {
@@ -863,12 +898,19 @@ describe('kinetic speech beat-locked budget', () => {
 
   it('still-waiting sticky carries inline ellipsis dots and kick heartbeat', () => {
     const sticky = getAllKineticBeats().find((b) => b.id === 'a2-waiting');
+    const deadline = getAllKineticBeats().find((b) => b.id === 'a2-deadline-sticky');
     expect(sticky && sticky.kind === 'sticky').toBe(true);
     if (sticky && sticky.kind === 'sticky') {
       expect(sticky.inline).toBe(true);
       expect(sticky.heartbeat).toBe(true);
       expect(sticky.prefix).toBe('Still waiting');
+      // Match Deadline sticky type size (body, not close)
+      expect(sticky.prefixRole ?? 'body').toBe('body');
+      expect(sticky.steps[0]?.role ?? sticky.prefixRole ?? 'body').toBe('body');
       expect(sticky.steps[0]?.dots).toBeGreaterThanOrEqual(1);
+    }
+    if (deadline && deadline.kind === 'sticky') {
+      expect(deadline.prefixRole ?? 'body').toBe('body');
     }
   });
 

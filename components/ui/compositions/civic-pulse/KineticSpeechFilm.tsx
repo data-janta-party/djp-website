@@ -752,7 +752,11 @@ export function KineticSpeechFilm({
           const root = sel(beat.id);
           const prefixId = `${beat.id}-prefix`;
           const dotsRoot = `${beat.id}-dots`;
-          const hasVisibleSuffix = beat.steps.some((s) => s.suffix.length > 0);
+          // Text morph (Deadline) OR empty-suffix + dots (Still waiting) use step-local ellipsis
+          // inside the suffix slot — same body-size "..." as Deadline extended...
+          const hasVisibleSuffix =
+            beat.steps.some((s) => s.suffix.length > 0) ||
+            beat.steps.some((s) => (s.dots ?? 0) > 0);
           // All morph stickies: opacity stack + longest sizer (no relative/absolute width dance).
           // Wide Demand keeps a punchier scale; cough keeps heave/shake intentionally.
           const wideStack = Boolean(beat.wide);
@@ -941,8 +945,8 @@ export function KineticSpeechFilm({
             }
             bi += step.hold;
 
-            // Loading dots trail the active word: step-local for morph suffixes,
-            // shared post-prefix slot for empty-suffix stickies (Still waiting).
+            // Loading dots trail the active suffix (Deadline morph + Still waiting).
+            // Step-local inside the suffix slot so "..." matches body type size.
             // Every whole beat hops a dot; kicks hop harder so the ellipsis reads
             // as percussion, not a free-running loader.
             if (step.dots && step.dots > 0) {
@@ -2442,22 +2446,22 @@ function BeatNodes({ beat }: { beat: KineticBeat }) {
     case 'sticky': {
       const prefixRole = beat.prefixRole ?? 'body';
       const suffixRole = beat.steps[0]?.role ?? prefixRole;
-      const hasVisibleSuffix = beat.steps.some((s) => s.suffix.length > 0);
+      const hasTextSuffix = beat.steps.some((s) => s.suffix.length > 0);
       const hasDots = beat.steps.some((s) => (s.dots ?? 0) > 0);
-      // Shared post-prefix dots only for empty-suffix stickies (Still waiting).
-      // Morph steps with dots trail inside each active suffix (flush after the word).
-      const useSharedDots = hasDots && !hasVisibleSuffix;
+      // Deadline morph + Still waiting (empty suffix + dots): same suffix-slot + step-local "..."
+      // so ellipsis inherits body type size. Do not use a separate shared-dots chrome path.
+      const useSuffixSlot = hasTextSuffix || hasDots;
       // Ellipsis inherits the phrase type role so dots read as trailing "..." not chrome.
-      const dotsRole = hasVisibleSuffix ? suffixRole : prefixRole;
+      const dotsRole = suffixRole;
       // Wide: no trailing space char (flex gap handles spacing — trailing space collapses in flex).
-      // Non-wide: NBSP after prefix keeps “Deadline promised” tight; empty-suffix flush for dots.
+      // Non-wide: NBSP after prefix when a word suffix follows; empty-suffix dots stay flush.
       const prefixText =
-        hasVisibleSuffix && !beat.wide ? `${beat.prefix}\u00A0` : beat.prefix;
+        hasTextSuffix && !beat.wide ? `${beat.prefix}\u00A0` : beat.prefix;
       // Sizer reserves painted width: dotted steps count suffix + "..." so ellipsis
-      // hangs flush after the word without clipping past the sticky w-max box.
+      // hangs flush after the word (or alone for Still waiting) without clipping.
       const suffixSizeKey = (suffix: string, dots?: number) =>
         (dots ?? 0) > 0 ? `${suffix}...` : suffix;
-      const longestSuffix = hasVisibleSuffix
+      const longestSuffix = useSuffixSlot
         ? [...beat.steps].sort(
             (a, b) =>
               suffixSizeKey(b.suffix, b.dots).length - suffixSizeKey(a.suffix, a.dots).length,
@@ -2513,9 +2517,9 @@ function BeatNodes({ beat }: { beat: KineticBeat }) {
           >
             {prefixText}
           </span>
-          {/* Suffix-run: morph word (+ step-local dots) or empty-suffix shared dots */}
+          {/* Suffix-run: morph word + step-local dots (Deadline) or dots-only slot (Still waiting) */}
           <span className="kinetic-sticky-suffix-run m-0 p-0" id="tpl-components-ui-compositions-civic-pulse-kinetic-speech-film-l2456-c11">
-            {hasVisibleSuffix ? (
+            {useSuffixSlot ? (
               <span
                 className={cn(
                   'kinetic-sticky-suffix-slot relative inline-block align-baseline',
@@ -2552,7 +2556,7 @@ function BeatNodes({ beat }: { beat: KineticBeat }) {
                 ))}
               </span>
             ) : (
-              // Keep ids so the sticky scheduler can no-op safely when suffixes are empty
+              // No morph / no dots: keep step ids so the sticky scheduler can no-op safely
               beat.steps.map((step, i) => (
                 <span
                   key={`${beat.id}-s${i}`}
@@ -2565,11 +2569,8 @@ function BeatNodes({ beat }: { beat: KineticBeat }) {
                 </span>
               ))
             )}
-            {useSharedDots ? (
-              loadingDots(false)
-            ) : (
-              <span id={`${beat.id}-dots`} className="hidden" aria-hidden />
-            )}
+            {/* Shared post-prefix dots retired — Still waiting uses step-local dots like Deadline */}
+            <span id={`${beat.id}-dots`} className="hidden" aria-hidden />
           </span>
         </div>
       );

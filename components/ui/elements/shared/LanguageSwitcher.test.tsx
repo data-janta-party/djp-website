@@ -10,14 +10,27 @@ describe('LanguageSwitcher', () => {
     document.documentElement.lang = 'en';
   });
 
-  it('renders language options and switches locale via shadcn Select', async () => {
+  it('opens a dropdown on button press and switches locale', async () => {
     const user = userEvent.setup();
     render(<LanguageSwitcher />);
 
-    const trigger = screen.getByLabelText(/Language/i);
+    const trigger = screen.getByRole('button', { name: /Language/i });
     expect(trigger).toBeInTheDocument();
+    // Icon-only: selected locale is not shown on the button.
+    expect(trigger).not.toHaveTextContent(/English|हिन्दी/i);
+    expect(document.getElementById('language-switcher-translate-indic')).toBeInTheDocument();
+
+    // Dropdown is closed until pressed.
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+
     await user.click(trigger);
-    await user.click(await screen.findByRole('option', { name: 'हिन्दी' }));
+
+    const menu = await screen.findByRole('menu');
+    expect(menu).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'English' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'हिन्दी' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('menuitem', { name: 'हिन्दी' }));
     expect(document.documentElement.lang).toBe('hi');
   });
 });
