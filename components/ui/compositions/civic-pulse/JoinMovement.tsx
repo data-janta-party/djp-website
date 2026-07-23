@@ -12,8 +12,8 @@ export interface JoinMovementProps extends React.HTMLAttributes<HTMLDivElement> 
 }
 
 /**
- * Final CTA — left-aligned rotating “Let's build {adjective} India.” (white)
- * + code / skills cards only.
+ * Final CTA — left-aligned rotating “Let's build {adjective} India.”
+ * (mobile: two lines; plain white type) + code / skills / ideas cards.
  */
 export function JoinMovement({ className }: JoinMovementProps) {
   const { messages } = useLocale();

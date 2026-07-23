@@ -1,48 +1,28 @@
 'use server';
 
 import { eq } from 'drizzle-orm';
-import { z } from 'zod';
 
 import { DbUnavailableError, getDb, volunteers } from '@/lib/db';
 import { createJsonLogger } from '@/lib/logging';
+import {
+  collectVolunteerFieldErrors,
+  volunteerInputSchema,
+  type VolunteerFieldErrorCode,
+  type VolunteerVisibleField,
+} from '@/lib/schemas/volunteer';
 
 const logger = createJsonLogger({
   service: 'volunteer-action',
   defaultContext: { action: 'submitVolunteerApplication' },
 });
 
-/** Phone: optional, digits and common separators only. */
-const phoneSchema = z
-  .string()
-  .trim()
-  .max(40)
-  .regex(/^[\d\s+\-().]*$/, 'Invalid phone')
-  .optional()
-  .or(z.literal(''));
-
-/**
- * Anti-bot honeypot: real users leave this empty (field is hidden in the UI).
- * Bots that autofill every input trip the check (silent success — no DB write).
- */
-const honeypotSchema = z.string().max(200).optional().or(z.literal(''));
-
-const volunteerInputSchema = z.object({
-  name: z.string().trim().min(1).max(120),
-  email: z
-    .string()
-    .trim()
-    .email()
-    .max(254)
-    .transform((value) => value.toLowerCase()),
-  phone: phoneSchema,
-  city: z.string().trim().min(1).max(120),
-  interest: z.string().trim().min(1).max(1000),
-  website: honeypotSchema,
-});
-
 export type VolunteerResult =
   | { ok: true }
-  | { ok: false; error: string };
+  | {
+      ok: false;
+      error: string;
+      fieldErrors?: Partial<Record<VolunteerVisibleField, VolunteerFieldErrorCode>>;
+    };
 
 function isUniqueConstraintError(error: unknown): boolean {
   if (!(error instanceof Error)) {
@@ -62,6 +42,7 @@ export async function submitVolunteerApplication(input: unknown): Promise<Volunt
     return {
       ok: false,
       error: 'Please check your details and try again.',
+      fieldErrors: collectVolunteerFieldErrors(input) ?? undefined,
     };
   }
 

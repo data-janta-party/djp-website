@@ -76,7 +76,11 @@ describe('submitVolunteerApplication', () => {
       interest: 'Help',
     });
 
-    expect(result.ok).toBe(false);
+    expect(result).toEqual({
+      ok: false,
+      error: 'Please check your details and try again.',
+      fieldErrors: { email: 'invalidEmail' },
+    });
     expect(getDbMock).not.toHaveBeenCalled();
   });
 
@@ -88,7 +92,11 @@ describe('submitVolunteerApplication', () => {
       interest: 'Help',
     });
 
-    expect(result.ok).toBe(false);
+    expect(result).toEqual({
+      ok: false,
+      error: 'Please check your details and try again.',
+      fieldErrors: { name: 'required' },
+    });
     expect(getDbMock).not.toHaveBeenCalled();
   });
 
@@ -101,7 +109,11 @@ describe('submitVolunteerApplication', () => {
       interest: 'Help',
     });
 
-    expect(result.ok).toBe(false);
+    expect(result).toEqual({
+      ok: false,
+      error: 'Please check your details and try again.',
+      fieldErrors: { phone: 'invalidPhone' },
+    });
     expect(getDbMock).not.toHaveBeenCalled();
   });
 

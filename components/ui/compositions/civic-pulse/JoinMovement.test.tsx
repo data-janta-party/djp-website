@@ -6,7 +6,7 @@ import { contributeLinkMeta, joinSectionId } from '@/lib/data/civic-pulse';
 import { JoinMovement } from './JoinMovement';
 
 describe('JoinMovement', () => {
-  it('renders left-aligned white rotating headline and code/skills cards only', () => {
+  it('renders left-aligned white rotating headline and code/skills/ideas cards only', () => {
     render(<JoinMovement />);
 
     expect(screen.getByRole('region', { name: /Join the movement/i })).toBeInTheDocument();
@@ -22,16 +22,18 @@ describe('JoinMovement', () => {
     expect(headline?.className).toMatch(/text-white/);
     expect(headline?.className).not.toMatch(/emerald/);
 
-    // Only code + skills cards
-    expect(contributeLinkMeta.map((l) => l.kind)).toEqual(['code', 'skills']);
+    // Only code + skills + ideas cards
+    expect(contributeLinkMeta.map((l) => l.kind)).toEqual(['code', 'skills', 'ideas']);
     expect(document.getElementById('contribute-code')).toBeInTheDocument();
     expect(document.getElementById('contribute-skills')).toBeInTheDocument();
+    expect(document.getElementById('contribute-ideas')).toBeInTheDocument();
     expect(document.getElementById('contribute-data')).not.toBeInTheDocument();
     expect(document.getElementById('contribute-apps')).not.toBeInTheDocument();
     expect(document.getElementById('contribute-money')).not.toBeInTheDocument();
 
     expect(screen.getByText(/Contribute with code/i)).toBeInTheDocument();
     expect(screen.getByText(/Contribute with your skills/i)).toBeInTheDocument();
+    expect(screen.getByText(/Contribute with your ideas/i)).toBeInTheDocument();
     expect(screen.queryByText(/Contribute with data/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Download our apps/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Contribute with money/i)).not.toBeInTheDocument();
@@ -49,6 +51,10 @@ describe('JoinMovement', () => {
     expect(screen.getByRole('link', { name: /^Volunteer$/i })).toHaveAttribute(
       'href',
       '#volunteer',
+    );
+    expect(screen.getByRole('link', { name: /Open Reddit/i })).toHaveAttribute(
+      'href',
+      'https://www.reddit.com/r/DataJantaParty',
     );
   });
 });
