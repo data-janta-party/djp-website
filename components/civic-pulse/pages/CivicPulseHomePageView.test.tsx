@@ -32,7 +32,7 @@ describe('CivicPulseHomePageView', () => {
     expect(screen.queryByText(/Contribute with data/i)).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Open GitHub/i })).toHaveAttribute(
       'href',
-      'https://github.com/datajantaparty',
+      'https://github.com/data-janta-party',
     );
     expect(screen.getByRole('heading', { name: /Stand with us/i })).toBeInTheDocument();
     expect(screen.getByLabelText(/Full name/i)).toBeInTheDocument();
