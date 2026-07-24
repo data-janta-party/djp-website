@@ -710,8 +710,8 @@ describe('kinetic speech beat-locked budget', () => {
     expect(transcript).toMatch(/Delayed\./);
     expect(transcript).toMatch(/5 years/);
     expect(transcript).toMatch(/4 years/);
-    expect(transcript).toMatch(/3–5 years/);
-    expect(transcript).toMatch(/18 years/);
+    expect(transcript).toMatch(/5 years/);
+    expect(transcript).toMatch(/21 years/);
     // Prefer single upper figure over ranges where called out
     expect(transcript).not.toMatch(/3–4 years/);
     expect(transcript).not.toMatch(/4–5 years/);
@@ -764,7 +764,6 @@ describe('kinetic speech beat-locked budget', () => {
     expect(sourceBlob).toMatch(/Jewar/i);
     expect(sourceBlob).toMatch(/news18\.com/i);
     expect(sourceBlob).toMatch(/USBRL|Udhampur|Baramulla/i);
-    expect(sourceBlob).toMatch(/MoSPI/i);
     // Prefer delay-reporting news where available (not only project overview pages)
     expect(DELAYED_PROJECT_SOURCES.some((s) => /Mint|TOI|News18|idrw|MoSPI/i.test(s.label))).toBe(
       true,

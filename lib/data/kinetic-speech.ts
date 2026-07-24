@@ -63,7 +63,6 @@ export type StickyStep = {
  */
 export type DelayedProjectFact = {
   project: string;
-  /** e.g. "5 years", "18 years", "10+ years" */
   years: string;
 };
 
@@ -82,9 +81,9 @@ export const DELAYED_PROJECT_FACTS = [
   { project: 'Bullet Train', years: '5 years' },
   { project: 'Delhi–Mumbai Expressway', years: '4 years' },
   { project: '5th-gen fighter (AMCA)', years: '10+ years' },
-  { project: 'Bengaluru Metro', years: '3–5 years' },
+  { project: 'Bengaluru Metro', years: '5 years' },
   { project: 'Jewar Airport (Noida Intl.)', years: '5 years' },
-  { project: 'Udhampur-Baramulla Rail', years: '18 years' },
+  { project: 'Udhampur-Baramulla Rail', years: '21 years' },
 ] as const satisfies readonly DelayedProjectFact[];
 
 /**
@@ -93,10 +92,6 @@ export const DELAYED_PROJECT_FACTS = [
  * Order loosely follows DELAYED_PROJECT_FACTS.
  */
 export const DELAYED_PROJECT_SOURCES = [
-  {
-    label: 'MoSPI',
-    href: 'https://www.mospi.gov.in/',
-  },
   {
     // TOI: 4+ year slip, cost overrun reporting
     label: 'Bullet Train (TOI)',
@@ -123,9 +118,8 @@ export const DELAYED_PROJECT_SOURCES = [
     href: 'https://www.news18.com/cities/noida/jewar-airport-full-cost-every-missed-deadline-and-the-complete-timeline-from-2001-to-march-2026-ws-l-10000330.html',
   },
   {
-    // ~18-year USBRL construction history
     label: 'USBRL (Wikipedia)',
-    href: 'https://en.wikipedia.org/wiki/Udhampur%E2%80%93Srinagar%E2%80%93Baramulla_Rail_Link',
+    href: 'https://www.newindianexpress.com/india/2023/Aug/31/delayed-railway-projects-up-from-56-to-98-in-1-year-2610262.html',
   },
 ] as const satisfies readonly DelayedProjectSource[];
 
