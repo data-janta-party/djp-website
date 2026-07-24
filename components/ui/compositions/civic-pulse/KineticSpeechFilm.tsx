@@ -201,8 +201,14 @@ export function KineticSpeechFilm({
    * for a user gesture to start the soundtrack.
    */
   const [audioBlocked, setAudioBlocked] = useState(false);
+  /**
+   * Cold `/speech` loads wait on the multi-MB trailer buffer before first play.
+   * Start true for the auto-start path so direct navigation shows a spinner
+   * instead of a blank black stage; poster stays false until play.
+   */
+  const [mediaLoading, setMediaLoading] = useState(!stayOnPoster);
   const [status, setStatus] = useState<string>(
-    stayOnPoster ? copy.a11y.paused : copy.a11y.playing,
+    stayOnPoster ? copy.a11y.paused : copy.a11y.loading,
   );
   /** DEV scrubber: current 1-based slide (0 = not started). */
   const [slideIndex, setSlideIndex] = useState(0);
@@ -314,50 +320,62 @@ export function KineticSpeechFilm({
   const ensureAudioPlaying = useCallback(async (opts?: { seekToTimeline?: boolean }) => {
     const audio = audioRef.current;
     if (!audio) {
+      setMediaLoading(false);
       return false;
     }
 
-    await waitForAudioData(audio);
+    // Surface spinner while the trailer buffers (cold CF / first play).
+    if (audio.readyState < HTMLMediaElement.HAVE_FUTURE_DATA) {
+      setMediaLoading(true);
+      setStatus(copy.a11y.loading);
+    }
 
-    if (opts?.seekToTimeline) {
-      const tl = timelineRef.current;
-      if (tl && audio.readyState >= HTMLMediaElement.HAVE_METADATA) {
-        try {
-          audio.currentTime = tl.time();
-        } catch {
-          /* ignore seek errors */
+    try {
+      await waitForAudioData(audio);
+
+      if (opts?.seekToTimeline) {
+        const tl = timelineRef.current;
+        if (tl && audio.readyState >= HTMLMediaElement.HAVE_METADATA) {
+          try {
+            audio.currentTime = tl.time();
+          } catch {
+            /* ignore seek errors */
+          }
         }
       }
-    }
 
-    audio.muted = mutedRef.current;
-    try {
-      await audio.play();
-      setAudioBlocked(false);
-      clearAudioUnlockRef.current?.();
-      clearAudioUnlockRef.current = null;
-      return true;
-    } catch {
-      // Do not advance the film without a soundtrack until the user unlocks.
-      setAudioBlocked(true);
-      if (clearAudioUnlockRef.current) {
+      audio.muted = mutedRef.current;
+      try {
+        await audio.play();
+        setAudioBlocked(false);
+        clearAudioUnlockRef.current?.();
+        clearAudioUnlockRef.current = null;
+        return true;
+      } catch {
+        // Do not advance the film without a soundtrack until the user unlocks.
+        setAudioBlocked(true);
+        if (clearAudioUnlockRef.current) {
+          return false;
+        }
+        const unlock = () => {
+          void ensureAudioPlayingRef.current({ seekToTimeline: true }).then((ok) => {
+            if (ok && phaseRef.current === 'playing') {
+              timelineRef.current?.play();
+            }
+          });
+        };
+        const optsCapture: AddEventListenerOptions = { capture: true };
+        document.addEventListener('pointerdown', unlock, optsCapture);
+        document.addEventListener('keydown', unlock, optsCapture);
+        clearAudioUnlockRef.current = () => {
+          document.removeEventListener('pointerdown', unlock, optsCapture);
+          document.removeEventListener('keydown', unlock, optsCapture);
+        };
         return false;
       }
-      const unlock = () => {
-        void ensureAudioPlayingRef.current({ seekToTimeline: true }).then((ok) => {
-          if (ok && phaseRef.current === 'playing') {
-            timelineRef.current?.play();
-          }
-        });
-      };
-      const optsCapture: AddEventListenerOptions = { capture: true };
-      document.addEventListener('pointerdown', unlock, optsCapture);
-      document.addEventListener('keydown', unlock, optsCapture);
-      clearAudioUnlockRef.current = () => {
-        document.removeEventListener('pointerdown', unlock, optsCapture);
-        document.removeEventListener('keydown', unlock, optsCapture);
-      };
-      return false;
+    } finally {
+      // Always clear — cached audio may have started with mediaLoading true.
+      setMediaLoading(false);
     }
   }, [waitForAudioData]);
   useEffect(() => {
@@ -1538,6 +1556,7 @@ export function KineticSpeechFilm({
 
   const startFilm = useCallback(async (): Promise<boolean> => {
     if (reduced) {
+      setMediaLoading(false);
       setPhase('ended');
       setStatus(copy.a11y.ended);
       return true;
@@ -1548,7 +1567,6 @@ export function KineticSpeechFilm({
     setJoinReady(false);
     setEndcardSourcesOpen(false);
     setPhase('playing');
-    setStatus(copy.a11y.playing);
     phaseRef.current = 'playing';
     if (typeof document !== 'undefined') {
       const active = document.activeElement;
@@ -1566,6 +1584,7 @@ export function KineticSpeechFilm({
     killTimeline();
     const tl = buildTimeline();
     if (!tl) {
+      setMediaLoading(false);
       return false;
     }
     timelineRef.current = tl;
@@ -1578,6 +1597,11 @@ export function KineticSpeechFilm({
         /* ignore */
       }
     }
+    // Spinner while trailer buffers; skip flash when audio is already ready (replay).
+    if (!audio || audio.readyState < HTMLMediaElement.HAVE_FUTURE_DATA) {
+      setMediaLoading(true);
+      setStatus(copy.a11y.loading);
+    }
     const audioOk = await ensureAudioPlaying();
     if (!audioOk) {
       // Autoplay blocked or media not ready — hold timeline at 0 until unlock.
@@ -1588,6 +1612,7 @@ export function KineticSpeechFilm({
       return true;
     }
 
+    setStatus(copy.a11y.playing);
     tl.play(0);
     if (isDevSlideNav && slideCount > 0) {
       slideIndexRef.current = 1;
@@ -2022,7 +2047,8 @@ export function KineticSpeechFilm({
     );
   }
 
-  const showControls = phase === 'playing' || phase === 'paused' || phase === 'ended';
+  const showControls =
+    !mediaLoading && (phase === 'playing' || phase === 'paused' || phase === 'ended');
   const showDevSlideNav =
     isDevSlideNav && !reduced && showControls && slideCount > 0 && slideIndex > 0;
   const activeSlideId =
@@ -2032,6 +2058,7 @@ export function KineticSpeechFilm({
     <section
       id="kinetic-speech-film"
       aria-label={copy.a11y.region}
+      aria-busy={mediaLoading || undefined}
       className={cn(
         'relative h-svh min-h-svh w-screen max-w-none -mx-[calc((100vw-100%)/2)] overflow-hidden bg-black text-white',
         className,
@@ -2048,6 +2075,25 @@ export function KineticSpeechFilm({
         preload="auto"
         playsInline
       />
+
+      {mediaLoading ? (
+        <div
+          id="kinetic-media-loading"
+          className="pointer-events-none absolute inset-0 z-50 flex flex-col items-center justify-center gap-4"
+          role="status"
+          aria-live="polite"
+          aria-label={copy.a11y.loading}
+        >
+          <div
+            id="kinetic-media-loading-spinner"
+            className="kinetic-spinner"
+            aria-hidden
+          />
+          <span id="kinetic-media-loading-label" className="sr-only">
+            {copy.a11y.loading}
+          </span>
+        </div>
+      ) : null}
 
       <div
         id="kinetic-stage"

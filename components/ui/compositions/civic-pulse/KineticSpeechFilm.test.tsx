@@ -104,6 +104,15 @@ function timelinePositionSets(position: 'relative' | 'absolute') {
   );
 }
 
+/** Wait until auto-start finishes trailer buffer and control chrome is shown. */
+async function waitForFilmControls() {
+  await vi.waitFor(() => {
+    expect(
+      screen.getByRole('button', { name: kineticSpeechCopy.controls.skip }),
+    ).toBeInTheDocument();
+  });
+}
+
 describe('KineticSpeechFilm', () => {
   beforeEach(() => {
     gsapCallFns.length = 0;
@@ -117,6 +126,11 @@ describe('KineticSpeechFilm', () => {
       configurable: true,
       writable: true,
       value: vi.fn(),
+    });
+    // Default: media already buffered so auto-start does not hang on canplay.
+    Object.defineProperty(window.HTMLMediaElement.prototype, 'readyState', {
+      configurable: true,
+      get: () => 4, // HAVE_ENOUGH_DATA
     });
   });
 
@@ -259,9 +273,61 @@ describe('KineticSpeechFilm', () => {
       await Promise.resolve();
     });
     expect(document.getElementById('kinetic-poster')).not.toBeInTheDocument();
+    expect(document.getElementById('kinetic-media-loading')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: kineticSpeechCopy.controls.mute })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: kineticSpeechCopy.controls.pause })).toBeInTheDocument();
     expect(timelineApis.length).toBeGreaterThan(0);
+  });
+
+  it('shows a spinner while the trailer is buffering on cold load', async () => {
+    Object.defineProperty(window.HTMLMediaElement.prototype, 'readyState', {
+      configurable: true,
+      get: () => 0, // HAVE_NOTHING — force waitForAudioData
+    });
+    Object.defineProperty(window.HTMLMediaElement.prototype, 'load', {
+      configurable: true,
+      writable: true,
+      value: vi.fn(),
+    });
+
+    render(<KineticSpeechFilm />);
+
+    // Spinner is present from mount / while waiting for canplay
+    const loading = await vi.waitFor(() => {
+      const el = document.getElementById('kinetic-media-loading');
+      expect(el).toBeTruthy();
+      return el!;
+    });
+    expect(loading).toHaveAttribute('aria-label', kineticSpeechCopy.a11y.loading);
+    expect(document.getElementById('kinetic-media-loading-spinner')).toHaveClass(
+      'kinetic-spinner',
+    );
+    expect(document.getElementById('kinetic-speech-film')).toHaveAttribute(
+      'aria-busy',
+      'true',
+    );
+    // Controls stay hidden until buffer is ready
+    expect(
+      screen.queryByRole('button', { name: kineticSpeechCopy.controls.pause }),
+    ).not.toBeInTheDocument();
+
+    // Simulate media becoming ready
+    const audio = document.getElementById('kinetic-speech-audio') as HTMLAudioElement;
+    Object.defineProperty(window.HTMLMediaElement.prototype, 'readyState', {
+      configurable: true,
+      get: () => 4,
+    });
+    await act(async () => {
+      audio.dispatchEvent(new Event('canplay'));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    await vi.waitFor(() => {
+      expect(document.getElementById('kinetic-media-loading')).not.toBeInTheDocument();
+    });
+    expect(document.getElementById('kinetic-speech-film')?.getAttribute('aria-busy')).toBeNull();
+    expect(screen.getByRole('button', { name: kineticSpeechCopy.controls.pause })).toBeInTheDocument();
   });
 
   it('surfaces tap-for-sound when autoplay play() is blocked', async () => {
@@ -269,11 +335,6 @@ describe('KineticSpeechFilm', () => {
       configurable: true,
       writable: true,
       value: vi.fn().mockRejectedValue(new DOMException('NotAllowedError')),
-    });
-    // readyState high enough so we do not wait on canplay
-    Object.defineProperty(window.HTMLMediaElement.prototype, 'readyState', {
-      configurable: true,
-      get: () => 4,
     });
 
     render(<KineticSpeechFilm />);
@@ -287,6 +348,8 @@ describe('KineticSpeechFilm', () => {
       screen.getByRole('button', { name: kineticSpeechCopy.a11y.soundBlocked }),
     ).toBeInTheDocument();
     expect(screen.getByText(kineticSpeechCopy.controls.tapForSound)).toBeInTheDocument();
+    // Spinner must not stick after autoplay is blocked
+    expect(document.getElementById('kinetic-media-loading')).not.toBeInTheDocument();
 
     // Gesture unlock retries play and clears the control
     Object.defineProperty(window.HTMLMediaElement.prototype, 'play', {
@@ -400,6 +463,7 @@ describe('KineticSpeechFilm', () => {
   it('unlocks Join after roller settle while phase stays playing', async () => {
     const user = userEvent.setup();
     render(<KineticSpeechFilm />);
+    await waitForFilmControls();
 
     // Timeline build schedules setJoinReady via gsap.call — invoke it without ending film.
     expect(gsapCallFns.length).toBeGreaterThan(0);
@@ -427,6 +491,7 @@ describe('KineticSpeechFilm', () => {
   it('opens endcard Sources hover card with music + project links after unlock', async () => {
     const user = userEvent.setup();
     render(<KineticSpeechFilm />);
+    await waitForFilmControls();
     await act(async () => {
       for (const fn of gsapCallFns) {
         fn();
@@ -467,6 +532,7 @@ describe('KineticSpeechFilm', () => {
   it('closes open endcard Sources panel on replay and does not re-open until user opens', async () => {
     const user = userEvent.setup();
     render(<KineticSpeechFilm />);
+    await waitForFilmControls();
     await user.click(screen.getByRole('button', { name: kineticSpeechCopy.controls.skip }));
 
     const trigger = document.getElementById('kinetic-endcard-sources-trigger');
@@ -510,6 +576,7 @@ describe('KineticSpeechFilm', () => {
   it('does not steal Space activation from focused Join link', async () => {
     const user = userEvent.setup();
     render(<KineticSpeechFilm />);
+    await waitForFilmControls();
     await act(async () => {
       for (const fn of gsapCallFns) {
         fn();
@@ -530,6 +597,7 @@ describe('KineticSpeechFilm', () => {
   it('skip settles reels and makes join interactive', async () => {
     const user = userEvent.setup();
     render(<KineticSpeechFilm />);
+    await waitForFilmControls();
     // While playing, endcard stays non-interactive
     expect(document.getElementById('kinetic-fin-join')).toHaveAttribute('tabindex', '-1');
     expect(document.getElementById('kinetic-endcard')?.hasAttribute('inert')).toBe(true);
@@ -564,6 +632,7 @@ describe('KineticSpeechFilm', () => {
   it('replay drops endcard interactivity before film restarts', async () => {
     const user = userEvent.setup();
     render(<KineticSpeechFilm />);
+    await waitForFilmControls();
     await user.click(screen.getByRole('button', { name: kineticSpeechCopy.controls.skip }));
     expect(document.getElementById('kinetic-fin-join')).toHaveAttribute('tabindex', '0');
     expect(document.getElementById('kinetic-endcard-sources-trigger')).toHaveAttribute(
