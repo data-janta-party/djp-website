@@ -1,6 +1,7 @@
 'use client';
 
 import gsap from 'gsap';
+import { Pause, Play, RotateCcw, Volume2, VolumeX } from 'lucide-react';
 import Link from 'next/link';
 import {
   useCallback,
@@ -16,9 +17,7 @@ import {
   getKineticSpeechAudioEndBeat,
   getKineticSpeechFilmDurationSec,
   getKineticSpeechTranscript,
-  getKineticSpeechVisualEndSec,
   KINETIC_ENDCARD_SOURCES,
-  kineticSpeechAudioDurationSec,
   kineticSpeechAudioSrc,
   kineticSpeechCopy as copy,
   kineticSpeechEndcardHoldSec,
@@ -85,6 +84,15 @@ const BG = {
   /** Pure black stage — not charcoal grey. */
   charcoal: '#000000',
 } as const;
+
+/** Control chrome icons — lucide (project icon library) with explicit px size. */
+const CONTROL_ICON_PROPS = {
+  size: 20,
+  strokeWidth: 2,
+  'aria-hidden': true as const,
+  focusable: false as const,
+  className: 'kinetic-control-icon size-5 shrink-0 text-white',
+};
 
 function subscribeReducedMotion(onChange: () => void): () => void {
   if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
@@ -172,7 +180,8 @@ export function KineticSpeechFilm({
   const stageRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const timelineRef = useRef<gsap.core.Timeline | null>(null);
-  const rafRef = useRef<number | null>(null);
+  /** rAF id for the audio→visual scrub loop (visual never free-runs). */
+  const scrubRafRef = useRef<number | null>(null);
   /**
    * Poster / Play gate. Production `/speech` passes previewMode="poster" so the
    * first play() is always a user gesture (autoplay is unreliable on cold loads).
@@ -189,6 +198,17 @@ export function KineticSpeechFilm({
   const mutedRef = useRef(false);
   /** Cleanup for document-level autoplay unlock listeners. */
   const clearAudioUnlockRef = useRef<(() => void) | null>(null);
+  /**
+   * Bumped on unmount / kill so in-flight startFilm() after React Strict Mode
+   * remount cannot leave audio running against a dead timeline (blank stage).
+   */
+  const filmSessionRef = useRef(0);
+  /**
+   * Transport: audio is the only free-running clock. GSAP timeline stays paused
+   * and is scrubbed to audio.currentTime while phase is playing.
+   * Refs let unlock handlers call the latest scrub/start without declaration order issues.
+   */
+  const startScrubLoopRef = useRef<() => void>(() => undefined);
 
   const [phase, setPhase] = useState<FilmPhase>(stayOnPoster ? 'poster' : 'playing');
   /** Join/URL interactive after roller settles, while music may still be playing. */
@@ -229,18 +249,18 @@ export function KineticSpeechFilm({
   const slideItems = useMemo(() => layoutKineticSpeech().items, []);
   const slideCount = slideItems.length;
 
-  const stopSyncLoop = useCallback(() => {
-    if (rafRef.current != null) {
-      cancelAnimationFrame(rafRef.current);
-      rafRef.current = null;
+  const stopScrubLoop = useCallback(() => {
+    if (scrubRafRef.current != null) {
+      cancelAnimationFrame(scrubRafRef.current);
+      scrubRafRef.current = null;
     }
   }, []);
 
   const killTimeline = useCallback(() => {
     timelineRef.current?.kill();
     timelineRef.current = null;
-    stopSyncLoop();
-  }, [stopSyncLoop]);
+    stopScrubLoop();
+  }, [stopScrubLoop]);
 
   const hideChrome = useCallback((hide: boolean) => {
     document.documentElement.classList.toggle('kinetic-speech-active', hide);
@@ -258,9 +278,15 @@ export function KineticSpeechFilm({
     hideChrome(true);
     const audio = audioRef.current;
     return () => {
+      // Invalidate in-flight startFilm so it cannot orphan audio against a dead TL.
+      filmSessionRef.current += 1;
       hideChrome(false);
       killTimeline();
-      audio?.pause();
+      try {
+        audio?.pause();
+      } catch {
+        /* ignore */
+      }
       clearAudioUnlockRef.current?.();
       clearAudioUnlockRef.current = null;
     };
@@ -346,13 +372,32 @@ export function KineticSpeechFilm({
 
       audio.muted = mutedRef.current;
       try {
-        await audio.play();
+        // Some browsers leave play() pending forever under autoplay policy —
+        // race a timeout so we surface "tap for sound" instead of an eternal spinner.
+        await Promise.race([
+          audio.play(),
+          new Promise<never>((_, reject) => {
+            window.setTimeout(() => {
+              reject(new Error('audio-play-timeout'));
+            }, 4000);
+          }),
+        ]);
+        // User may have paused while we waited on buffer / play().
+        if (phaseRef.current !== 'playing') {
+          audio.pause();
+          return false;
+        }
         setAudioBlocked(false);
         clearAudioUnlockRef.current?.();
         clearAudioUnlockRef.current = null;
         return true;
       } catch {
         // Do not advance the film without a soundtrack until the user unlocks.
+        try {
+          audio.pause();
+        } catch {
+          /* ignore */
+        }
         setAudioBlocked(true);
         if (clearAudioUnlockRef.current) {
           return false;
@@ -360,7 +405,8 @@ export function KineticSpeechFilm({
         const unlock = () => {
           void ensureAudioPlayingRef.current({ seekToTimeline: true }).then((ok) => {
             if (ok && phaseRef.current === 'playing') {
-              timelineRef.current?.play();
+              // Audio master: scrub visual to currentTime (never free-run GSAP).
+              startScrubLoopRef.current();
             }
           });
         };
@@ -390,13 +436,15 @@ export function KineticSpeechFilm({
 
     const q = gsap.utils.selector(stage);
 
+    // Always paused: playback is audio-driven via scrub loop (never tl.play()).
     const tl = gsap.timeline({
       paused: true,
       // Don’t Blink: snappy deceleration into rest (avoid soft power2 defaults)
       defaults: { ease: 'power4.out' },
       onComplete: () => {
-        stopSyncLoop();
-        // Music has reached natural track end (timeline spans to audio duration).
+        // Scrub reached film end. Prefer audio `ended` for music tail; if music
+        // already finished (or is about to), finish the phase here too.
+        stopScrubLoop();
         const audio = audioRef.current;
         if (audio) {
           const ended =
@@ -407,7 +455,7 @@ export function KineticSpeechFilm({
           if (ended) {
             audio.pause();
           }
-          // If audio somehow still playing, leave it; `ended` handler finishes phase.
+          // If audio still playing through its tail, leave it; `ended` handler finishes phase.
         }
         const stageEl = stageRef.current;
         if (stageEl) {
@@ -415,6 +463,7 @@ export function KineticSpeechFilm({
           gsap.set(qDone('#kinetic-fin-join'), { autoAlpha: 1, y: 0 });
         }
         setJoinReady(true);
+        phaseRef.current = 'ended';
         setPhase('ended');
         setStatus(copy.a11y.ended);
       },
@@ -436,6 +485,7 @@ export function KineticSpeechFilm({
     // Initial state: hide everything animated; full transform/filter reset for replay safety
     setStageBg('charcoal');
     gsap.set(q('#kinetic-bg'), { backgroundColor: BG.charcoal, filter: 'none' });
+    // Primary type: bottom-center origin so scale pops grow up from the shared rail
     gsap.set(q('[data-k-node]'), {
       autoAlpha: 0,
       scale: 1,
@@ -443,10 +493,11 @@ export function KineticSpeechFilm({
       y: 0,
       rotation: 0,
       filter: 'none',
+      transformOrigin: '50% 100%',
     });
     // Sticky roots may shake (cough x yoyo) — clear mid-play kill residue on rebuild
-    gsap.set(q('[data-k-sticky]'), { autoAlpha: 0, x: 0 });
-    gsap.set(q('[data-k-sticky-pair]'), { autoAlpha: 0 });
+    gsap.set(q('[data-k-sticky]'), { autoAlpha: 0, x: 0, transformOrigin: '50% 100%' });
+    gsap.set(q('[data-k-sticky-pair]'), { autoAlpha: 0, transformOrigin: '50% 100%' });
     // Drop AQI ramp inline colors so rebuild/replay stays monochrome
     gsap.set(q('[data-k-sticky-pair] [data-k-node]'), { clearProps: 'color' });
     // Morph suffixes stay absolute (longest sizer owns width); baseline-lock via bottom
@@ -464,10 +515,25 @@ export function KineticSpeechFilm({
     gsap.set(q('[data-k-dot]'), { autoAlpha: 0, y: 0 });
     gsap.set(q('[data-k-flood-tile]'), { autoAlpha: 0, scale: 0.9, x: 0, y: 0 });
     gsap.set(q('[data-k-cloud-word]'), { autoAlpha: 0, scale: 1, x: 0, y: 0 });
-    gsap.set(q('[data-k-rapid-word]'), { autoAlpha: 0, scale: 1, y: 0 });
+    gsap.set(q('[data-k-rapid-word]'), {
+      autoAlpha: 0,
+      scale: 1,
+      y: 0,
+      transformOrigin: '50% 100%',
+    });
     gsap.set(q('[data-k-project-delays]'), { autoAlpha: 0 });
-    gsap.set(q('[data-k-delay-card]'), { autoAlpha: 0, scale: 1, y: 0 });
-    gsap.set(q('[data-k-delay-more]'), { autoAlpha: 0, scale: 1, y: 0 });
+    gsap.set(q('[data-k-delay-card]'), {
+      autoAlpha: 0,
+      scale: 1,
+      y: 0,
+      transformOrigin: '50% 100%',
+    });
+    gsap.set(q('[data-k-delay-more]'), {
+      autoAlpha: 0,
+      scale: 1,
+      y: 0,
+      transformOrigin: '50% 100%',
+    });
     gsap.set(q('#kinetic-endcard'), { autoAlpha: 0, scale: 1 });
     gsap.set(q('#kinetic-roller'), { autoAlpha: 1, scale: 1 });
     gsap.set(q('[data-k-reel]'), { scale: 1 });
@@ -476,7 +542,12 @@ export function KineticSpeechFilm({
     gsap.set(q('[data-k-flood]'), { autoAlpha: 0, scale: 1 });
     gsap.set(q('[data-k-cloud]'), { autoAlpha: 0 });
     gsap.set(q('[data-k-rapid]'), { autoAlpha: 0 });
-    gsap.set(q('[data-k-quote]'), { autoAlpha: 0, y: 0, scale: 1 });
+    gsap.set(q('[data-k-quote]'), {
+      autoAlpha: 0,
+      y: 0,
+      scale: 1,
+      transformOrigin: '50% 100%',
+    });
 
     let lastLineSel: string | null = null;
     const { items } = layoutKineticSpeech();
@@ -1448,7 +1519,7 @@ export function KineticSpeechFilm({
     tl.to({}, { duration: 0.01 }, filmEndSec);
 
     return tl;
-  }, [stopSyncLoop]);
+  }, [stopScrubLoop]);
 
   const syncDevSlideHash = useCallback(
     (timeSec: number) => {
@@ -1465,66 +1536,63 @@ export function KineticSpeechFilm({
     [isDevSlideNav, slideCount, slideItems],
   );
 
-  const startSyncLoop = useCallback(() => {
-    const tick = () => {
-      const audio = audioRef.current;
-      const tl = timelineRef.current;
-      if (audio && tl && phaseRef.current === 'playing') {
-        // Stall GSAP while the media element is rebuffering so we never force
-        // currentTime seeks against an empty buffer (felt as "hanging" audio).
-        const waiting =
-          audio.readyState < HTMLMediaElement.HAVE_FUTURE_DATA && !audio.paused && !audio.ended;
-        if (waiting) {
-          if (!tl.paused()) {
-            tl.pause();
-          }
-        } else if (!audio.paused && tl.paused() && !audioBlocked) {
-          tl.play();
-        }
+  /**
+   * TRANSPORT — audio is master clock; GSAP is a scrubbed visual track.
+   *
+   * While phase is playing and audio is actually playing, each rAF sets
+   * `tl.time(audio.currentTime)`. Pause = stop audio + stop scrub. Visual freezes
+   * on the last scrubbed frame. Never free-run the timeline with tl.play().
+   */
+  const scrubVisualToAudio = useCallback(() => {
+    const audio = audioRef.current;
+    const tl = timelineRef.current;
+    if (!audio || !tl || phaseRef.current !== 'playing') {
+      return;
+    }
+    // Frozen until soundtrack is unlocked / actually playing.
+    if (audio.paused || audio.ended) {
+      return;
+    }
+    // Keep timeline paused; only drive playhead from media time.
+    if (typeof tl.paused === 'function' && !tl.paused()) {
+      tl.pause();
+    }
+    const t = audio.currentTime;
+    // seek() renders the full state at t more reliably than time() alone for paused TLs.
+    if (typeof tl.seek === 'function') {
+      tl.seek(t);
+    } else {
+      tl.time(t);
+    }
+    if (typeof tl.pause === 'function') {
+      tl.pause();
+    }
+    if (isDevSlideNav) {
+      syncDevSlideHash(t);
+    }
+  }, [isDevSlideNav, syncDevSlideHash]);
 
-        if (!audio.paused && !waiting) {
-          const len =
-            Number.isFinite(audio.duration) && audio.duration > 0
-              ? audio.duration
-              : kineticSpeechAudioDurationSec;
-          // One-pass track: timeline time maps 1:1 to audio (no soft-loop modulo)
-          const expected = Math.min(tl.time(), len);
-          // After visual end, allow music to free-run to natural end without re-seek.
-          const visualEnd = getKineticSpeechVisualEndSec();
-          if (tl.time() <= visualEnd) {
-            const drift = Math.abs(audio.currentTime - expected);
-            // Only correct modest drift when the media can seek safely.
-            if (
-              drift > 0.2 &&
-              drift < 1.5 &&
-              expected < len - 0.05 &&
-              audio.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA
-            ) {
-              try {
-                audio.currentTime = expected;
-              } catch {
-                /* ignore seek errors */
-              }
-            }
-          }
-          if (isDevSlideNav) {
-            syncDevSlideHash(tl.time());
-          }
-        }
+  const startScrubLoop = useCallback(() => {
+    const tick = () => {
+      if (phaseRef.current !== 'playing') {
+        scrubRafRef.current = null;
+        return;
       }
-      if (phaseRef.current === 'playing') {
-        rafRef.current = requestAnimationFrame(tick);
-      } else {
-        rafRef.current = null;
-      }
+      scrubVisualToAudio();
+      scrubRafRef.current = requestAnimationFrame(tick);
     };
-    stopSyncLoop();
-    rafRef.current = requestAnimationFrame(tick);
-  }, [audioBlocked, isDevSlideNav, stopSyncLoop, syncDevSlideHash]);
+    stopScrubLoop();
+    scrubRafRef.current = requestAnimationFrame(tick);
+  }, [scrubVisualToAudio, stopScrubLoop]);
+
+  useEffect(() => {
+    startScrubLoopRef.current = startScrubLoop;
+  }, [startScrubLoop]);
 
   /**
    * One-pass track: when audio ends naturally, finish film phase.
    * Do not soft-loop — music should play cleanly to the end.
+   * Audio end is authoritative for the music tail.
    */
   useEffect(() => {
     const audio = audioRef.current;
@@ -1535,16 +1603,17 @@ export function KineticSpeechFilm({
       if (phaseRef.current !== 'playing' && phaseRef.current !== 'paused') {
         return;
       }
-      stopSyncLoop();
+      stopScrubLoop();
       const stageEl = stageRef.current;
       if (stageEl) {
         const qDone = gsap.utils.selector(stageEl);
         gsap.set(qDone('#kinetic-fin-join'), { autoAlpha: 1, y: 0 });
       }
       setJoinReady(true);
+      phaseRef.current = 'ended';
       setPhase('ended');
       setStatus(copy.a11y.ended);
-      // Snap timeline to complete if still mid-tail hold
+      // Snap visual to complete if still mid-tail hold
       const tl = timelineRef.current;
       if (tl && tl.progress() < 1) {
         tl.progress(1);
@@ -1552,22 +1621,27 @@ export function KineticSpeechFilm({
     };
     audio.addEventListener('ended', onEnded);
     return () => audio.removeEventListener('ended', onEnded);
-  }, [stopSyncLoop]);
+  }, [stopScrubLoop]);
 
   const startFilm = useCallback(async (): Promise<boolean> => {
     if (reduced) {
       setMediaLoading(false);
+      phaseRef.current = 'ended';
       setPhase('ended');
       setStatus(copy.a11y.ended);
       return true;
     }
 
+    // New session: supersede any prior in-flight start (Strict Mode / double invoke).
+    const session = (filmSessionRef.current += 1);
+
     // Drop endcard interactivity immediately (before await audio.play)
     // so replay cannot leave hidden Join/URL/Sources focusable.
     setJoinReady(false);
     setEndcardSourcesOpen(false);
-    setPhase('playing');
+    stopScrubLoop();
     phaseRef.current = 'playing';
+    setPhase('playing');
     if (typeof document !== 'undefined') {
       const active = document.activeElement;
       if (
@@ -1582,12 +1656,15 @@ export function KineticSpeechFilm({
     }
 
     killTimeline();
-    const tl = buildTimeline();
+    // killTimeline does not bump session — we own the session for this start.
+    let tl = buildTimeline();
     if (!tl) {
       setMediaLoading(false);
       return false;
     }
     timelineRef.current = tl;
+    // Visual starts frozen at 0; only advances when scrub follows audio.
+    tl.pause(0);
 
     const audio = audioRef.current;
     if (audio) {
@@ -1603,23 +1680,47 @@ export function KineticSpeechFilm({
       setStatus(copy.a11y.loading);
     }
     const audioOk = await ensureAudioPlaying();
-    if (!audioOk) {
-      // Autoplay blocked or media not ready — hold timeline at 0 until unlock.
-      // Avoids silent film racing ahead of a cold/failed soundtrack.
+
+    // Stale start after unmount / newer startFilm — leave transport to the new session.
+    // ensureAudioPlaying's finally already cleared the loading spinner.
+    if (session !== filmSessionRef.current) {
+      return false;
+    }
+    if (phaseRef.current !== 'playing') {
+      // User paused (or left) while buffering / play() was pending.
+      audioRef.current?.pause();
+      setMediaLoading(false);
+      return false;
+    }
+
+    // Timeline may have been killed during the await (remount cleanup). Rebuild.
+    tl = timelineRef.current;
+    if (!tl) {
+      tl = buildTimeline();
+      if (!tl) {
+        setMediaLoading(false);
+        audioRef.current?.pause();
+        return false;
+      }
+      timelineRef.current = tl;
       tl.pause(0);
-      setPhase('playing');
+    }
+
+    if (!audioOk) {
+      // Autoplay blocked or media not ready — hold visual at 0 until unlock.
+      tl.pause(0);
       setStatus(copy.a11y.soundBlocked);
       return true;
     }
 
     setStatus(copy.a11y.playing);
-    tl.play(0);
     if (isDevSlideNav && slideCount > 0) {
       slideIndexRef.current = 1;
       setSlideIndex(1);
       replaceKineticSlideHash(1);
     }
-    startSyncLoop();
+    // Scrub loop drives GSAP from audio.currentTime — no tl.play().
+    startScrubLoop();
     return true;
   }, [
     buildTimeline,
@@ -1628,28 +1729,65 @@ export function KineticSpeechFilm({
     killTimeline,
     reduced,
     slideCount,
-    startSyncLoop,
+    startScrubLoop,
+    stopScrubLoop,
   ]);
 
   const pauseFilm = useCallback(() => {
+    // Single pause path: stop scrub first so no later tick advances visuals,
+    // then pause audio. Timeline stays paused (never free-ran).
+    phaseRef.current = 'paused';
+    stopScrubLoop();
+    const audio = audioRef.current;
+    if (audio) {
+      audio.pause();
+    }
+    // Belt-and-suspenders: timeline should already be paused (never free-ran).
     timelineRef.current?.pause();
-    audioRef.current?.pause();
     setPhase('paused');
     setStatus(copy.a11y.paused);
     // Don't clear unlock while paused — resume still needs gesture if never unlocked
-  }, []);
+  }, [stopScrubLoop]);
 
   const resumeFilm = useCallback(async () => {
     const audio = audioRef.current;
-    const tl = timelineRef.current;
-    if (tl && audio) {
-      tl.play();
-      await ensureAudioPlaying({ seekToTimeline: true });
-      setPhase('playing');
-      setStatus(copy.a11y.playing);
-      startSyncLoop();
+    if (!audio) {
+      return;
     }
-  }, [ensureAudioPlaying, startSyncLoop]);
+    // Rebuild visual track if a remount/race left audio alive without a timeline.
+    let tl = timelineRef.current;
+    if (!tl) {
+      tl = buildTimeline();
+      if (!tl) {
+        return;
+      }
+      timelineRef.current = tl;
+      const t = Number.isFinite(audio.currentTime) ? audio.currentTime : 0;
+      if (typeof tl.seek === 'function') {
+        tl.seek(t);
+      } else {
+        tl.time(t);
+      }
+      tl.pause();
+    }
+    // Mark playing before async audio work so unlock handlers see the intent.
+    phaseRef.current = 'playing';
+    setPhase('playing');
+    setStatus(copy.a11y.playing);
+    // Align audio to last visual frame, then play audio only.
+    const audioOk = await ensureAudioPlaying({ seekToTimeline: true });
+    if (phaseRef.current !== 'playing') {
+      // User paused again while we waited on buffer / play().
+      audio.pause();
+      return;
+    }
+    if (!audioOk) {
+      // Keep visual frozen until soundtrack unlock (same as cold-start policy).
+      setStatus(copy.a11y.soundBlocked);
+      return;
+    }
+    startScrubLoop();
+  }, [buildTimeline, ensureAudioPlaying, startScrubLoop]);
 
   const replayFilm = useCallback(() => {
     void startFilm();
@@ -1659,9 +1797,12 @@ export function KineticSpeechFilm({
    * Production `/speech` auto-starts on mount once stage + audio nodes exist.
    * `previewMode="poster"` keeps the Storybook/static play gate.
    * Dev hash deep-links start via seekToSlide instead of a full restart from 0.
+   *
+   * Strict Mode remount: cleanup clears autoStartedRef so the second mount
+   * starts a fresh film; filmSessionRef invalidates the first in-flight start.
    */
   useEffect(() => {
-    if (reduced || stayOnPoster || autoStartedRef.current) {
+    if (reduced || stayOnPoster) {
       return;
     }
     if (isDevSlideNav && typeof window !== 'undefined') {
@@ -1675,6 +1816,7 @@ export function KineticSpeechFilm({
 
     let cancelled = false;
     let rafId = 0;
+    let attempts = 0;
     const tryStart = () => {
       if (cancelled || autoStartedRef.current) {
         return;
@@ -1685,16 +1827,27 @@ export function KineticSpeechFilm({
         return;
       }
       autoStartedRef.current = true;
+      attempts += 1;
       void startFilm().then((ok) => {
-        // Stage vanished mid-start (Strict Mode) — allow a retry on remount
-        if (!ok && !cancelled) {
+        if (cancelled) {
+          return;
+        }
+        // Failed start (superseded session / missing stage) — retry a few times
+        if (!ok) {
           autoStartedRef.current = false;
+          if (attempts < 3) {
+            rafId = window.requestAnimationFrame(tryStart);
+          } else {
+            setMediaLoading(false);
+          }
         }
       });
     };
     tryStart();
     return () => {
       cancelled = true;
+      // Remount must be allowed to auto-start again (React Strict Mode double-mount).
+      autoStartedRef.current = false;
       if (rafId) {
         window.cancelAnimationFrame(rafId);
       }
@@ -1740,7 +1893,7 @@ export function KineticSpeechFilm({
       setJoinReady(false);
       setEndcardSourcesOpen(false);
 
-      // Rebuild if missing (poster, after skipToEnd kill, etc.)
+      // Rebuild if missing (poster / cold seek / after kill).
       let tl = timelineRef.current;
       if (!tl) {
         tl = ensureTimeline();
@@ -1758,12 +1911,13 @@ export function KineticSpeechFilm({
         suppressHashSeekRef.current = false;
       });
 
-      // GSAP: seek renders all tweens/calls up to t
+      // GSAP: seek renders all tweens/calls up to t (timeline stays paused).
       if (typeof tl.seek === 'function') {
         tl.seek(t);
       } else {
         tl.time(t);
       }
+      tl.pause();
 
       const audio = audioRef.current;
       if (audio) {
@@ -1776,17 +1930,29 @@ export function KineticSpeechFilm({
       }
 
       if (stayPaused) {
-        tl.pause();
+        stopScrubLoop();
         audio?.pause();
+        setMediaLoading(false);
+        phaseRef.current = 'paused';
         setPhase('paused');
         setStatus(copy.a11y.paused);
       } else {
+        phaseRef.current = 'playing';
         setPhase('playing');
         setStatus(copy.a11y.playing);
-        phaseRef.current = 'playing';
-        await ensureAudioPlaying({ seekToTimeline: true });
-        tl.play();
-        startSyncLoop();
+        const audioOk = await ensureAudioPlaying({ seekToTimeline: true });
+        if (phaseRef.current !== 'playing') {
+          audio?.pause();
+          setMediaLoading(false);
+          return;
+        }
+        if (!audioOk) {
+          setMediaLoading(false);
+          setStatus(copy.a11y.soundBlocked);
+          return;
+        }
+        setMediaLoading(false);
+        startScrubLoop();
       }
     },
     [
@@ -1797,7 +1963,8 @@ export function KineticSpeechFilm({
       reduced,
       slideCount,
       slideItems,
-      startSyncLoop,
+      startScrubLoop,
+      stopScrubLoop,
     ],
   );
 
@@ -1810,74 +1977,6 @@ export function KineticSpeechFilm({
     const cur = slideIndexRef.current > 0 ? slideIndexRef.current : 0;
     void seekToSlide(Math.min(slideCount, cur + 1));
   }, [seekToSlide, slideCount]);
-
-  const skipToEnd = useCallback(() => {
-    killTimeline();
-    const audio = audioRef.current;
-    if (audio) {
-      audio.pause();
-      audio.currentTime = 0;
-    }
-    const stage = stageRef.current;
-    if (stage) {
-      const q = gsap.utils.selector(stage);
-      gsap.set(stage, { attr: { 'data-k-bg': 'charcoal' } });
-      gsap.set(q('#kinetic-bg'), { backgroundColor: BG.charcoal, filter: 'none' });
-      gsap.set(q('[data-k-node]'), {
-        autoAlpha: 0,
-        scale: 1,
-        x: 0,
-        y: 0,
-        rotation: 0,
-        filter: 'none',
-      });
-      gsap.set(q('[data-k-sticky]'), { autoAlpha: 0, x: 0 });
-      gsap.set(q('[data-k-sticky-pair]'), { autoAlpha: 0 });
-      gsap.set(q('[data-k-sticky-pair] [data-k-node]'), { clearProps: 'color' });
-      gsap.set(q('[data-k-sticky-suffix]'), {
-        position: 'absolute',
-        left: 0,
-        bottom: 0,
-        top: 'auto',
-        x: 0,
-        y: 0,
-        scale: 1,
-        rotation: 0,
-        transformOrigin: 'left bottom',
-      });
-      gsap.set(q('[data-k-dot]'), { autoAlpha: 0, y: 0 });
-      gsap.set(q('[data-k-flood]'), { autoAlpha: 0, scale: 1 });
-      gsap.set(q('[data-k-flood-tile]'), { autoAlpha: 0, scale: 0.9, x: 0, y: 0 });
-      gsap.set(q('[data-k-cloud]'), { autoAlpha: 0 });
-      gsap.set(q('[data-k-cloud-word]'), { autoAlpha: 0, scale: 1, x: 0, y: 0 });
-      gsap.set(q('[data-k-rapid]'), { autoAlpha: 0 });
-      gsap.set(q('[data-k-rapid-word]'), { autoAlpha: 0, scale: 1, y: 0 });
-      gsap.set(q('[data-k-quote]'), { autoAlpha: 0, y: 0, scale: 1 });
-      gsap.set(q('[data-k-project-delays]'), { autoAlpha: 0 });
-      gsap.set(q('[data-k-delay-card]'), { autoAlpha: 0, scale: 1, y: 0 });
-      gsap.set(q('[data-k-delay-more]'), { autoAlpha: 0, scale: 1, y: 0 });
-      gsap.set(q('#kinetic-endcard'), { autoAlpha: 1, scale: 1 });
-      gsap.set(q('#kinetic-roller'), { autoAlpha: 1, scale: 1 });
-      gsap.set(q('[data-k-reel]'), { scale: 1 });
-      // Skip shows settled domain: data · janta · party
-      const strips = stage.querySelectorAll<HTMLElement>(
-        '[data-k-reel-strip][data-k-domain-reel]',
-      );
-      strips.forEach((strip) => {
-        const steps = Number(strip.dataset.kReelSteps ?? String(kineticSpeechRollerSpinDepth));
-        gsap.set(strip, { y: `-${steps * kineticSpeechReelCellEm}em` });
-      });
-      gsap.set(q('#kinetic-fin-join'), { autoAlpha: 1, y: 0 });
-    }
-    setJoinReady(true);
-    setPhase('ended');
-    setStatus(copy.a11y.ended);
-    if (isDevSlideNav && slideCount > 0) {
-      slideIndexRef.current = slideCount;
-      setSlideIndex(slideCount);
-      replaceKineticSlideHash(slideCount);
-    }
-  }, [isDevSlideNav, killTimeline, slideCount]);
 
   // DEV: hash deep-link + browser hash edits → seek
   useEffect(() => {
@@ -1916,17 +2015,29 @@ export function KineticSpeechFilm({
   /** Explicit control for autoplay-blocked soundtrack (user gesture). */
   const unlockSound = useCallback(() => {
     void ensureAudioPlaying({ seekToTimeline: true }).then((ok) => {
-      if (!ok) {
+      if (!ok || phaseRef.current !== 'playing') {
         return;
       }
-      const tl = timelineRef.current;
-      if (tl && phaseRef.current === 'playing') {
-        tl.play();
-        startSyncLoop();
-        setStatus(copy.a11y.playing);
+      // Sound-blocked cold start keeps a timeline; remount races may not.
+      if (!timelineRef.current) {
+        const tl = buildTimeline();
+        if (!tl) {
+          return;
+        }
+        timelineRef.current = tl;
+        const audio = audioRef.current;
+        const t = audio && Number.isFinite(audio.currentTime) ? audio.currentTime : 0;
+        if (typeof tl.seek === 'function') {
+          tl.seek(t);
+        } else {
+          tl.time(t);
+        }
+        tl.pause();
       }
+      startScrubLoop();
+      setStatus(copy.a11y.playing);
     });
-  }, [ensureAudioPlaying, startSyncLoop]);
+  }, [buildTimeline, ensureAudioPlaying, startScrubLoop]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -1945,11 +2056,13 @@ export function KineticSpeechFilm({
       }
       if (event.code === 'Space') {
         event.preventDefault();
-        if (phase === 'poster' || phase === 'ended') {
+        // Use phaseRef (sync intent) so rapid Space during async resume cannot race.
+        const p = phaseRef.current;
+        if (p === 'poster' || p === 'ended') {
           void startFilm();
-        } else if (phase === 'playing') {
+        } else if (p === 'playing') {
           pauseFilm();
-        } else if (phase === 'paused') {
+        } else if (p === 'paused') {
           void resumeFilm();
         }
       }
@@ -1971,7 +2084,6 @@ export function KineticSpeechFilm({
     return () => window.removeEventListener('keydown', onKey);
   }, [
     isDevSlideNav,
-    phase,
     pauseFilm,
     reduced,
     resumeFilm,
@@ -2105,10 +2217,11 @@ export function KineticSpeechFilm({
           <div id="kinetic-bg" className="absolute inset-0 bg-black" />
         </div>
 
-        {/* RSVP center slot + specialized beat nodes (pre-rendered from data) */}
+        {/* Type rail host: primary beats bottom-lock via .kinetic-type-anchor;
+            full-stage packs (flood/cloud) keep their own inset-0 layout. */}
         <div
           id="kinetic-nodes"
-          className="absolute inset-0 flex items-center justify-center px-4 pb-16 pt-6 sm:px-6 md:px-10 md:pb-20"
+          className="absolute inset-0 overflow-hidden px-4 pt-6 sm:px-6 md:px-10"
         >
           {beats.map((beat) => (
             <BeatNodes key={beat.id} beat={beat} />
@@ -2256,15 +2369,19 @@ export function KineticSpeechFilm({
           <Link id="kinetic-control-home" href="/" className="kinetic-control-link">
             {copy.controls.home}
           </Link>
-          <div className="flex flex-wrap items-center justify-end gap-2" id="tpl-components-ui-compositions-civic-pulse-kinetic-speech-film-l2148-c11">
+          <div
+            className="flex flex-wrap items-center justify-end gap-2"
+            id="tpl-components-ui-compositions-civic-pulse-kinetic-speech-film-l2148-c11"
+          >
             {phase === 'playing' ? (
               <button
                 id="kinetic-control-pause"
                 type="button"
                 onClick={pauseFilm}
                 className="kinetic-control-btn"
+                aria-label={copy.controls.pause}
               >
-                {copy.controls.pause}
+                <Pause id="kinetic-control-pause-icon" {...CONTROL_ICON_PROPS} />
               </button>
             ) : null}
             {phase === 'paused' ? (
@@ -2273,8 +2390,9 @@ export function KineticSpeechFilm({
                 type="button"
                 onClick={() => void resumeFilm()}
                 className="kinetic-control-btn"
+                aria-label={copy.controls.play}
               >
-                {copy.controls.play}
+                <Play id="kinetic-control-resume-icon" {...CONTROL_ICON_PROPS} />
               </button>
             ) : null}
             {audioBlocked && phase === 'playing' ? (
@@ -2285,7 +2403,7 @@ export function KineticSpeechFilm({
                 className="kinetic-control-btn"
                 aria-label={copy.a11y.soundBlocked}
               >
-                {copy.controls.tapForSound}
+                <VolumeX id="kinetic-control-sound-icon" {...CONTROL_ICON_PROPS} />
               </button>
             ) : (
               <button
@@ -2293,8 +2411,13 @@ export function KineticSpeechFilm({
                 type="button"
                 onClick={toggleMute}
                 className="kinetic-control-btn"
+                aria-label={muted ? copy.controls.unmute : copy.controls.mute}
               >
-                {muted ? copy.controls.unmute : copy.controls.mute}
+                {muted ? (
+                  <VolumeX id="kinetic-control-mute-icon" {...CONTROL_ICON_PROPS} />
+                ) : (
+                  <Volume2 id="kinetic-control-unmute-icon" {...CONTROL_ICON_PROPS} />
+                )}
               </button>
             )}
             {phase === 'ended' || phase === 'paused' ? (
@@ -2303,18 +2426,9 @@ export function KineticSpeechFilm({
                 type="button"
                 onClick={replayFilm}
                 className="kinetic-control-btn"
+                aria-label={copy.controls.replay}
               >
-                {copy.controls.replay}
-              </button>
-            ) : null}
-            {phase !== 'ended' ? (
-              <button
-                id="kinetic-control-skip"
-                type="button"
-                onClick={skipToEnd}
-                className="kinetic-control-btn"
-              >
-                {copy.controls.skip}
+                <RotateCcw id="kinetic-control-replay-icon" {...CONTROL_ICON_PROPS} />
               </button>
             ) : null}
           </div>
@@ -2393,6 +2507,12 @@ function RollerUrl() {
   );
 }
 
+/** Shared bottom-rail lock for primary manifesto type (see .kinetic-type-anchor). */
+const TYPE_ANCHOR_SHORT =
+  'kinetic-type-anchor w-max max-w-[min(90vw,14ch)] px-2 text-center opacity-0 sm:max-w-[16ch] md:max-w-[18ch] lg:max-w-[22ch]';
+const TYPE_ANCHOR_THESIS =
+  'kinetic-type-anchor w-max max-w-[min(92vw,28ch)] px-3 text-center text-balance opacity-0 sm:px-4 md:max-w-[min(92vw,40ch)] md:px-6';
+
 function BeatNodes({ beat }: { beat: KineticBeat }) {
   switch (beat.kind) {
     case 'line': {
@@ -2400,13 +2520,12 @@ function BeatNodes({ beat }: { beat: KineticBeat }) {
         <p
           id={beat.id}
           data-k-node
+          data-k-type-anchor="bottom"
           data-k-motion={beat.motion}
           className={cn(
             roleClass(beat.role),
             // Short-punch vs wide thesis — mobile uses softer caps; md+ restores punch widths
-            beat.wide
-              ? 'absolute max-w-[min(92vw,28ch)] px-3 text-center text-balance opacity-0 sm:px-4 md:max-w-[min(92vw,40ch)] md:px-6'
-              : 'absolute max-w-[min(90vw,14ch)] px-2 text-center opacity-0 sm:max-w-[16ch] md:max-w-[18ch] lg:max-w-[22ch]',
+            beat.wide ? TYPE_ANCHOR_THESIS : TYPE_ANCHOR_SHORT,
             beat.dim && 'kinetic-dim-text',
             beat.tiranga && 'kinetic-tiranga',
             beat.role === 'brand' && 'tracking-[0.16em]',
@@ -2426,24 +2545,21 @@ function BeatNodes({ beat }: { beat: KineticBeat }) {
       // Wide lead = thesis clamp (Demand multi-word connective).
       // Multi-word hits on wide pairs (e.g. Abki baar) share the thesis clamp;
       // short slam punches (now.) stay punch-width.
-      const thesisClamp =
-        'absolute max-w-[min(92vw,28ch)] px-3 text-center text-balance opacity-0 sm:px-4 md:max-w-[min(92vw,40ch)] md:px-6';
-      const shortClamp =
-        'absolute max-w-[min(90vw,14ch)] px-2 text-center opacity-0 sm:max-w-[16ch] md:max-w-[18ch] lg:max-w-[22ch]';
-      const leadClamp = beat.wide ? thesisClamp : shortClamp;
+      const leadClamp = beat.wide ? TYPE_ANCHOR_THESIS : TYPE_ANCHOR_SHORT;
       const hitWordCount = beat.hit
         .trim()
         .split(/\s+/)
         .filter(Boolean).length;
       const hitClamp =
         beat.wide && hitWordCount > 1
-          ? thesisClamp
-          : 'absolute max-w-[min(90vw,14ch)] px-2 text-center opacity-0 sm:max-w-[16ch] md:max-w-[18ch]';
+          ? TYPE_ANCHOR_THESIS
+          : 'kinetic-type-anchor w-max max-w-[min(90vw,14ch)] px-2 text-center opacity-0 sm:max-w-[16ch] md:max-w-[18ch]';
       return (
         <>
           <p
             id={`${beat.id}-lead`}
             data-k-node
+            data-k-type-anchor="bottom"
             className={cn(roleClass(leadRole), leadClamp)}
           >
             {beat.lead}
@@ -2451,6 +2567,7 @@ function BeatNodes({ beat }: { beat: KineticBeat }) {
           <p
             id={`${beat.id}-hit`}
             data-k-node
+            data-k-type-anchor="bottom"
             className={cn(roleClass(hitRole), hitClamp)}
           >
             {beat.hit}
@@ -2463,26 +2580,29 @@ function BeatNodes({ beat }: { beat: KineticBeat }) {
       return (
         <div
           id={beat.id}
+          data-k-type-anchor="bottom"
           className={cn(
-            'absolute inset-0 flex items-center justify-center px-4',
+            // Band = position on type rail only. Flex alignment is Tailwind-only
+            // (globals .kinetic-stage-rail-band must not set align-items).
+            'kinetic-stage-rail-band px-4',
             // Mobile: always stack so Left/Right and Religion/Caste never squeeze.
-            // md+: restore horizontal tussle for axis x; y stays column.
+            // md+: restore horizontal tussle for axis x; y stays column + centered.
             axis === 'y'
-              ? 'flex-col gap-2 sm:gap-3 md:gap-6'
-              : 'flex-col gap-2 sm:gap-3 md:flex-row md:gap-16',
+              ? 'flex-col items-center justify-center gap-2 sm:gap-3 md:gap-6'
+              : 'flex-col items-center justify-center gap-2 sm:gap-3 md:flex-row md:items-end md:justify-center md:gap-16',
           )}
         >
           <p
             id={`${beat.id}-left`}
             data-k-node
-            className="kinetic-type-body max-w-[min(90vw,14ch)] text-center opacity-0"
+            className="kinetic-type-body w-max max-w-[min(90vw,14ch)] self-center text-center opacity-0"
           >
             {beat.left}
           </p>
           <p
             id={`${beat.id}-right`}
             data-k-node
-            className="kinetic-type-body max-w-[min(90vw,14ch)] text-center opacity-0"
+            className="kinetic-type-body w-max max-w-[min(90vw,14ch)] self-center text-center opacity-0"
           >
             {beat.right}
           </p>
@@ -2538,22 +2658,23 @@ function BeatNodes({ beat }: { beat: KineticBeat }) {
         <div
           id={beat.id}
           data-k-sticky
+          data-k-type-anchor="bottom"
           className={cn(
+            // Bottom-rail lock + baseline flex for prefix/suffix morph
             // Non-wide: gap-x-0 — space lives in prefix NBSP; suffix-run is one tight unit
             // Wide: CSS .kinetic-sticky-wide gap between prefix and suffix-run (always when wide)
-            'kinetic-sticky absolute flex items-baseline justify-center text-center opacity-0',
+            'kinetic-sticky kinetic-type-anchor flex items-baseline justify-center text-center opacity-0',
             !beat.wide && 'gap-x-0',
             // Gap + wrap helpers must follow beat.wide even if inline is omitted later
             beat.wide && 'kinetic-sticky-wide',
             beat.inline
               ? beat.wide
-                ? // Demand long morph: content-sized + absolute horizontal center (left/right + mx-auto).
-                  // Slightly wider clamp so “We want no corruption,” stays one line.
-                  'kinetic-sticky-inline left-0 right-0 mx-auto max-w-[min(94vw,44ch)] w-max flex-nowrap whitespace-nowrap justify-center px-3 sm:px-4 md:px-6'
-                : // All short inline stickies: single-line nowrap + content center (stable while morphing)
-                  'kinetic-sticky-inline left-0 right-0 mx-auto max-w-[min(92vw,36ch)] w-max flex-nowrap whitespace-nowrap justify-center px-3 sm:px-4 md:px-6'
+                ? // Demand long morph: content-sized on the rail; slightly wider clamp for one line
+                  'kinetic-sticky-inline w-max max-w-[min(94vw,44ch)] flex-nowrap whitespace-nowrap px-3 sm:px-4 md:px-6'
+                : // All short inline stickies: single-line nowrap (stable while morphing)
+                  'kinetic-sticky-inline w-max max-w-[min(92vw,36ch)] flex-nowrap whitespace-nowrap px-3 sm:px-4 md:px-6'
               : // Non-inline morph (unused by director today): same single-line stability, tighter max-w
-                'left-0 right-0 mx-auto w-max max-w-[min(90vw,28ch)] flex-nowrap whitespace-nowrap justify-center px-2',
+                'w-max max-w-[min(90vw,28ch)] flex-nowrap whitespace-nowrap px-2',
           )}
         >
           <span
@@ -2672,9 +2793,10 @@ function BeatNodes({ beat }: { beat: KineticBeat }) {
         <div
           id={beat.id}
           data-k-sticky-pair
+          data-k-type-anchor="bottom"
           className={cn(
-            // Short pairs (office / VIP): large mobile body. Dense inventory keeps smaller type.
-            'kinetic-sticky-inline kinetic-sticky-pair absolute flex w-full max-w-[min(96vw,72rem)] flex-col items-center justify-center gap-y-1 overflow-visible px-3 text-center opacity-0 sm:px-4 md:w-max md:px-6',
+            // Two-line stack bottom-locks on the rail (grows upward). Dense inventory keeps smaller type.
+            'kinetic-sticky-inline kinetic-sticky-pair kinetic-type-anchor flex w-full max-w-[min(96vw,72rem)] flex-col items-center justify-end gap-y-1 overflow-visible px-3 text-center opacity-0 sm:px-4 md:w-max md:px-6',
             beat.dense && 'kinetic-sticky-pair-dense',
           )}
         >
@@ -2740,7 +2862,7 @@ function BeatNodes({ beat }: { beat: KineticBeat }) {
         <div
           id={beat.id}
           data-k-rapid
-          className="absolute inset-0 flex items-center justify-center opacity-0"
+          className="absolute inset-0 opacity-0"
         >
           {beat.words.map((word, i) => (
             <span
@@ -2748,7 +2870,8 @@ function BeatNodes({ beat }: { beat: KineticBeat }) {
               id={`${beat.id}-w${i}`}
               data-k-rapid-word
               data-k-node
-              className={cn(roleClass(role), 'absolute text-center opacity-0')}
+              data-k-type-anchor="bottom"
+              className={cn(roleClass(role), 'kinetic-type-anchor w-max text-center opacity-0')}
             >
               {word}
             </span>
@@ -2764,7 +2887,8 @@ function BeatNodes({ beat }: { beat: KineticBeat }) {
           id={beat.id}
           data-k-node
           data-k-quote
-          className="kinetic-quote absolute flex max-w-[min(92vw,48rem)] flex-col items-stretch gap-2 opacity-0 px-3 sm:px-4"
+          data-k-type-anchor="bottom"
+          className="kinetic-quote kinetic-type-anchor flex w-max max-w-[min(92vw,48rem)] flex-col items-stretch gap-2 opacity-0 px-3 sm:px-4"
         >
           <p
             id={`${beat.id}-text`}
@@ -2789,27 +2913,30 @@ function BeatNodes({ beat }: { beat: KineticBeat }) {
           className="kinetic-project-delays absolute inset-0 z-[1] opacity-0"
           aria-hidden
         >
-          {/* Centered stack: each project card (or the more slam) hardcuts in place */}
-          <div className="absolute inset-0 flex items-center justify-center px-4 pb-20 pt-6 sm:px-6 md:px-10" id="tpl-components-ui-compositions-civic-pulse-kinetic-speech-film-l2685-c11">
-            {beat.projects.map((project, i) => (
-              <div
-                key={`${beat.id}-p${i}`}
-                id={`${beat.id}-p${i}`}
-                data-k-delay-card
-                className="kinetic-delay-card absolute flex max-w-[min(92vw,36rem)] flex-col items-center gap-2 text-center opacity-0 sm:gap-2.5"
-              >
-                <span className="kinetic-delay-project" id={`tpl-components-ui-compositions-civic-pulse-kinetic-speech-film-l2693-c17-${i}`}>{project.project}</span>
-                <span className="kinetic-delay-label" id={`tpl-components-ui-compositions-civic-pulse-kinetic-speech-film-l2694-c17-${i}`}>Delayed.</span>
-                <span className="kinetic-delay-years" id={`tpl-components-ui-compositions-civic-pulse-kinetic-speech-film-l2695-c17-${i}`}>{project.years}</span>
-              </div>
-            ))}
+          {/* Each card / more slam bottom-locks on the shared type rail */}
+          {beat.projects.map((project, i) => (
             <div
-              id={`${beat.id}-more`}
-              data-k-delay-more
-              className={cn(roleClass('slam-xl'), 'kinetic-delay-more absolute opacity-0')}
+              key={`${beat.id}-p${i}`}
+              id={`${beat.id}-p${i}`}
+              data-k-delay-card
+              data-k-type-anchor="bottom"
+              className="kinetic-delay-card kinetic-type-anchor flex w-max max-w-[min(92vw,36rem)] flex-col items-center gap-2 px-4 text-center opacity-0 sm:gap-2.5 sm:px-6 md:px-10"
             >
-              {beat.moreLabel}
+              <span className="kinetic-delay-project" id={`tpl-components-ui-compositions-civic-pulse-kinetic-speech-film-l2693-c17-${i}`}>{project.project}</span>
+              <span className="kinetic-delay-label" id={`tpl-components-ui-compositions-civic-pulse-kinetic-speech-film-l2694-c17-${i}`}>Delayed.</span>
+              <span className="kinetic-delay-years" id={`tpl-components-ui-compositions-civic-pulse-kinetic-speech-film-l2695-c17-${i}`}>{project.years}</span>
             </div>
+          ))}
+          <div
+            id={`${beat.id}-more`}
+            data-k-delay-more
+            data-k-type-anchor="bottom"
+            className={cn(
+              roleClass('slam-xl'),
+              'kinetic-delay-more kinetic-type-anchor w-max px-4 opacity-0 sm:px-6 md:px-10',
+            )}
+          >
+            {beat.moreLabel}
           </div>
         </div>
       );

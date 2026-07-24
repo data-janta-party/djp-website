@@ -345,12 +345,9 @@ export const kineticSpeechCopy = {
   controls: {
     mute: 'Mute',
     unmute: 'Unmute',
-    /** Shown when browser autoplay blocks unmuted audio until a gesture. */
-    tapForSound: 'Tap for sound',
     replay: 'Replay',
     pause: 'Pause',
     play: 'Play',
-    skip: 'Skip to end',
     home: 'Back home',
   },
   a11y: {

@@ -380,6 +380,48 @@ html.kinetic-speech-active #navbar-brand {
   --kinetic-off-white: #f7f6f5;
   --kinetic-dim-white: rgba(255, 255, 255, 0.88);
   --kinetic-focus-ring: rgba(255, 255, 255, 0.55);
+  /*
+   * Shared type bottom-rail: every primary manifesto line sits its bottom edge here.
+   * ~mid-frame (42% from stage bottom) so big type grows up into the upper half;
+   * floor keeps copy above control chrome on short phones.
+   */
+  --kinetic-type-rail-bottom: max(5.5rem, 42%);
+}
+
+/*
+ * Stage-wide bottom lock for primary kinetic type (line / pair / sticky / quote / …).
+ * Horizontal center via left+right+margin (no CSS translate — GSAP owns transform).
+ * Multi-line and larger roles grow upward from this rail.
+ */
+.kinetic-type-anchor {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: auto;
+  bottom: var(--kinetic-type-rail-bottom);
+  margin-left: auto;
+  margin-right: auto;
+  text-align: center;
+  /* Scale pops expand upward so the painted bottom stays on the rail */
+  transform-origin: 50% 100%;
+}
+
+/*
+ * Content-sized band sitting ON the type rail (not full-stage center).
+ * Position only — flex alignment MUST stay on the element via Tailwind
+ * (items-center / md:items-end). Do not set align-items here: this file
+ * loads after utilities, so a fixed align-items would override markup and
+ * right-flush flex-col pairs (North/South).
+ */
+.kinetic-stage-rail-band {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: auto;
+  bottom: var(--kinetic-type-rail-bottom);
+  display: flex;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* Soft openers / connective tissue — mobile floor prioritizes readability */
@@ -920,15 +962,38 @@ html.kinetic-speech-active #navbar-brand {
 }
 
 .kinetic-control-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 2.5rem;
+  height: 2.5rem;
+  min-width: 2.5rem;
+  min-height: 2.5rem;
   border-radius: 9999px;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  padding: 0.375rem 0.75rem;
-  font-size: 0.875rem;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  padding: 0;
   color: #fff;
+  background: rgba(0, 0, 0, 0.45);
 }
 
 .kinetic-control-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.55);
+}
+
+/* Lucide stroke icons — force visible white glyphs inside control chips */
+.kinetic-control-btn .kinetic-control-icon,
+.kinetic-control-icon {
+  width: 1.25rem !important;
+  height: 1.25rem !important;
+  min-width: 1.25rem;
+  min-height: 1.25rem;
+  display: block;
+  flex-shrink: 0;
+  color: #fff !important;
+  stroke: #fff !important;
+  fill: none !important;
 }
 
 .kinetic-control-link {

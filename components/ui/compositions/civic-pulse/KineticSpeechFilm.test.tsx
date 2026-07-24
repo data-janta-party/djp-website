@@ -20,6 +20,7 @@ type TimelineApi = {
   call: ReturnType<typeof vi.fn>;
   play: ReturnType<typeof vi.fn>;
   pause: ReturnType<typeof vi.fn>;
+  paused: ReturnType<typeof vi.fn>;
   kill: ReturnType<typeof vi.fn>;
   time: ReturnType<typeof vi.fn>;
   seek: ReturnType<typeof vi.fn>;
@@ -34,6 +35,7 @@ const { gsapCallFns, timelineApis } = vi.hoisted(() => ({
 vi.mock('gsap', () => {
   const timeline = () => {
     let currentTime = 0;
+    let isPaused = true; // audio-master transport: timeline never free-runs
     const api: TimelineApi = {
       to: vi.fn().mockReturnThis(),
       fromTo: vi.fn().mockReturnThis(),
@@ -44,8 +46,24 @@ vi.mock('gsap', () => {
         }
         return api;
       }),
-      play: vi.fn().mockReturnThis(),
-      pause: vi.fn().mockReturnThis(),
+      play: vi.fn(() => {
+        isPaused = false;
+        return api;
+      }),
+      pause: vi.fn((t?: number) => {
+        isPaused = true;
+        if (typeof t === 'number') {
+          currentTime = t;
+        }
+        return api;
+      }),
+      paused: vi.fn((value?: boolean) => {
+        if (typeof value === 'boolean') {
+          isPaused = value;
+          return api;
+        }
+        return isPaused;
+      }),
       kill: vi.fn(),
       time: vi.fn((t?: number) => {
         if (typeof t === 'number') {
@@ -108,7 +126,7 @@ function timelinePositionSets(position: 'relative' | 'absolute') {
 async function waitForFilmControls() {
   await vi.waitFor(() => {
     expect(
-      screen.getByRole('button', { name: kineticSpeechCopy.controls.skip }),
+      screen.getByRole('button', { name: kineticSpeechCopy.controls.pause }),
     ).toBeInTheDocument();
   });
 }
@@ -143,6 +161,12 @@ describe('KineticSpeechFilm', () => {
     expect(document.getElementById('a3-lr')).toHaveClass('flex-col');
     expect(document.getElementById('a3-lr')).toHaveClass('md:flex-row');
     expect(document.getElementById('a3-ns')).toHaveClass('flex-col');
+    // North/South must stay horizontally centered (not right-flushed by rail-band flex-end)
+    expect(document.getElementById('a3-ns')).toHaveClass('items-center');
+    expect(document.getElementById('a3-ns')).toHaveClass('kinetic-stage-rail-band');
+    // Children self-center so parent cascade cannot right-flush the column stack
+    expect(document.getElementById('a3-ns-left')).toHaveClass('self-center');
+    expect(document.getElementById('a3-ns-right')).toHaveClass('self-center');
     expect(document.getElementById('a3-rc')).toHaveClass('flex-col');
     expect(document.getElementById('a3-rc')).toHaveClass('md:flex-row');
     // Tiranga only on India.
@@ -193,16 +217,15 @@ describe('KineticSpeechFilm', () => {
     expect(waitingSizer).toHaveClass('kinetic-type-body');
     expect(waitingSizer?.textContent).toBe('...');
     expect(document.getElementById('a2-waiting-s0')?.textContent).toBe('...');
-    // Short morph stickies: single-line nowrap at all breakpoints (no mobile wrap path)
+    // Short morph stickies: single-line nowrap + stage bottom-rail lock
     for (const id of ['a2-deadline-sticky', 'a5-every'] as const) {
       const sticky = document.getElementById(id);
       expect(sticky).toBeInTheDocument();
       expect(sticky).toHaveClass('flex-nowrap');
       expect(sticky).toHaveClass('whitespace-nowrap');
       expect(sticky).toHaveClass('w-max');
-      expect(sticky).toHaveClass('left-0');
-      expect(sticky).toHaveClass('right-0');
-      expect(sticky).toHaveClass('mx-auto');
+      expect(sticky).toHaveClass('kinetic-type-anchor');
+      expect(sticky).toHaveAttribute('data-k-type-anchor', 'bottom');
       expect(sticky).not.toHaveClass('whitespace-normal');
       expect(sticky).not.toHaveClass('flex-wrap');
       expect(sticky?.className).not.toMatch(/md:whitespace-nowrap|md:flex-nowrap/);
@@ -263,6 +286,50 @@ describe('KineticSpeechFilm', () => {
     // No small type utility on quote; full string present (not truncated in DOM)
     expect(quoteText?.className).not.toMatch(/text-sm|text-xs/);
     expect(quoteText?.textContent).toMatch(/Be the change you wish to see in the world/i);
+    // Quote block bottom-locks on the shared type rail
+    expect(document.getElementById('a6-gandhi')).toHaveClass('kinetic-type-anchor');
+    expect(document.getElementById('a6-gandhi')).toHaveAttribute(
+      'data-k-type-anchor',
+      'bottom',
+    );
+  });
+
+  it('bottom-locks primary type nodes on a shared stage rail (not vertical center)', () => {
+    render(<KineticSpeechFilm />);
+    const nodes = document.getElementById('kinetic-nodes');
+    expect(nodes).toBeInTheDocument();
+    // Host is a positioning layer — no flex vertical-centering of type boxes
+    expect(nodes?.className).not.toMatch(/items-center/);
+    expect(nodes?.className).not.toMatch(/justify-center/);
+
+    // Representative primary beats share the bottom-rail contract
+    const bottomLockedIds = [
+      'a6-india', // slam-xl line
+      'a2-deadline-sticky', // sticky
+      'a6-gandhi', // quote
+    ] as const;
+    for (const id of bottomLockedIds) {
+      const el = document.getElementById(id);
+      expect(el).toBeInTheDocument();
+      expect(el).toHaveClass('kinetic-type-anchor');
+      expect(el).toHaveAttribute('data-k-type-anchor', 'bottom');
+    }
+
+    // Pair lead/hit both sit on the same rail
+    expect(document.getElementById('a1-p1-lead')).toHaveClass('kinetic-type-anchor');
+    expect(document.getElementById('a1-p1-hit')).toHaveClass('kinetic-type-anchor');
+    expect(document.getElementById('a6-abki-lead')).toHaveClass('kinetic-type-anchor');
+    expect(document.getElementById('a6-abki-hit')).toHaveClass('kinetic-type-anchor');
+
+    // Slide-pair band sits on the rail (words are in-flow of the band)
+    expect(document.getElementById('a3-lr')).toHaveClass('kinetic-stage-rail-band');
+    expect(document.getElementById('a3-lr')).toHaveAttribute('data-k-type-anchor', 'bottom');
+
+    // Full-stage flood stays inset-0 packing (not manifesto rail)
+    const flood = document.querySelector('[data-k-flood]');
+    expect(flood).toBeInTheDocument();
+    expect(flood).toHaveClass('inset-0');
+    expect(flood).not.toHaveClass('kinetic-type-anchor');
   });
 
 
@@ -347,7 +414,10 @@ describe('KineticSpeechFilm', () => {
     expect(
       screen.getByRole('button', { name: kineticSpeechCopy.a11y.soundBlocked }),
     ).toBeInTheDocument();
-    expect(screen.getByText(kineticSpeechCopy.controls.tapForSound)).toBeInTheDocument();
+    expect(document.getElementById('kinetic-control-sound-icon')).toBeInTheDocument();
+    expect(
+      document.querySelector('#kinetic-control-sound-icon path, #kinetic-control-sound-icon line'),
+    ).toBeTruthy();
     // Spinner must not stick after autoplay is blocked
     expect(document.getElementById('kinetic-media-loading')).not.toBeInTheDocument();
 
@@ -482,10 +552,93 @@ describe('KineticSpeechFilm', () => {
     expect(sourcesTrigger).toHaveAttribute('tabindex', '0');
     expect(endcard?.hasAttribute('inert')).toBe(false);
     expect(endcard).toHaveAttribute('aria-hidden', 'false');
-    // Still mid-play: pause + skip present, replay absent
+    // Still mid-play: pause present, replay absent (no skip control)
     expect(screen.getByRole('button', { name: kineticSpeechCopy.controls.pause })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: kineticSpeechCopy.controls.skip })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: kineticSpeechCopy.controls.replay })).not.toBeInTheDocument();
+    expect(document.getElementById('kinetic-control-skip')).toBeNull();
+  });
+
+  it('pauses audio and freezes visual (no free-run timeline after pause)', async () => {
+    const user = userEvent.setup();
+    render(<KineticSpeechFilm />);
+    await waitForFilmControls();
+
+    const tl = timelineApis[timelineApis.length - 1];
+    expect(tl).toBeTruthy();
+    const playCallsBeforePause = tl!.play.mock.calls.length;
+    const timeCallsBeforePause = tl!.time.mock.calls.length;
+    const pauseMock = window.HTMLMediaElement.prototype.pause as ReturnType<typeof vi.fn>;
+    pauseMock.mockClear();
+
+    // Audio-master transport: playback never free-runs GSAP via tl.play().
+    expect(playCallsBeforePause).toBe(0);
+
+    await user.click(screen.getByRole('button', { name: kineticSpeechCopy.controls.pause }));
+
+    expect(pauseMock).toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: kineticSpeechCopy.controls.play })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: kineticSpeechCopy.controls.replay })).toBeInTheDocument();
+
+    // After pause: scrub loop stops — no new free-run play, no scrub time advances.
+    await act(async () => {
+      await new Promise((r) => requestAnimationFrame(() => r(undefined)));
+      await new Promise((r) => requestAnimationFrame(() => r(undefined)));
+    });
+    expect(tl!.play.mock.calls.length).toBe(0);
+    expect(tl!.time.mock.calls.length).toBe(timeCallsBeforePause);
+  });
+
+  it('resume restarts audio + scrub without free-running the timeline', async () => {
+    const user = userEvent.setup();
+    render(<KineticSpeechFilm />);
+    await waitForFilmControls();
+
+    const tl = timelineApis[timelineApis.length - 1];
+    expect(tl).toBeTruthy();
+    const playMock = window.HTMLMediaElement.prototype.play as ReturnType<typeof vi.fn>;
+
+    await user.click(screen.getByRole('button', { name: kineticSpeechCopy.controls.pause }));
+    playMock.mockClear();
+    tl!.play.mockClear();
+    tl!.time.mockClear();
+
+    await user.click(screen.getByRole('button', { name: kineticSpeechCopy.controls.play }));
+    await act(async () => {
+      await Promise.resolve();
+      await new Promise((r) => requestAnimationFrame(() => r(undefined)));
+      await new Promise((r) => requestAnimationFrame(() => r(undefined)));
+    });
+
+    expect(playMock).toHaveBeenCalled();
+    // Visual still scrubbed, never free-run
+    expect(tl!.play).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: kineticSpeechCopy.controls.pause })).toBeInTheDocument();
+  });
+
+  it('renders icon-only control buttons with lucide SVGs', async () => {
+    render(<KineticSpeechFilm />);
+    await waitForFilmControls();
+
+    expect(document.getElementById('kinetic-control-pause-icon')).toBeInTheDocument();
+    // Default unmuted → Volume2 uses unmute-icon id (mute-icon is VolumeX when muted)
+    expect(document.getElementById('kinetic-control-unmute-icon')).toBeInTheDocument();
+    expect(document.getElementById('kinetic-control-pause')).toHaveAttribute(
+      'aria-label',
+      kineticSpeechCopy.controls.pause,
+    );
+    expect(document.getElementById('kinetic-control-mute')).toHaveAttribute(
+      'aria-label',
+      kineticSpeechCopy.controls.mute,
+    );
+    const pauseBtn = screen.getByRole('button', { name: kineticSpeechCopy.controls.pause });
+    const pauseIcon = pauseBtn.querySelector('svg.kinetic-control-icon');
+    expect(pauseIcon).toBeTruthy();
+    expect(pauseIcon).toHaveAttribute('width', '20');
+    expect(pauseIcon).toHaveAttribute('height', '20');
+    // Lucide stroke paths (not empty chips)
+    expect(pauseIcon?.querySelectorAll('path, line, rect, circle, polyline').length).toBeGreaterThan(
+      0,
+    );
   });
 
   it('opens endcard Sources hover card with music + project links after unlock', async () => {
@@ -533,7 +686,13 @@ describe('KineticSpeechFilm', () => {
     const user = userEvent.setup();
     render(<KineticSpeechFilm />);
     await waitForFilmControls();
-    await user.click(screen.getByRole('button', { name: kineticSpeechCopy.controls.skip }));
+    // Unlock endcard mid-film, then pause so Replay is available (no skip control).
+    await act(async () => {
+      for (const fn of gsapCallFns) {
+        fn();
+      }
+    });
+    await user.click(screen.getByRole('button', { name: kineticSpeechCopy.controls.pause }));
 
     const trigger = document.getElementById('kinetic-endcard-sources-trigger');
     expect(trigger).toHaveAttribute('tabindex', '0');
@@ -594,52 +753,29 @@ describe('KineticSpeechFilm', () => {
     expect(screen.queryByRole('button', { name: kineticSpeechCopy.controls.play })).not.toBeInTheDocument();
   });
 
-  it('skip settles reels and makes join interactive', async () => {
-    const user = userEvent.setup();
+  it('does not render skip-to-end control', async () => {
     render(<KineticSpeechFilm />);
     await waitForFilmControls();
-    // While playing, endcard stays non-interactive
-    expect(document.getElementById('kinetic-fin-join')).toHaveAttribute('tabindex', '-1');
-    expect(document.getElementById('kinetic-endcard')?.hasAttribute('inert')).toBe(true);
-    expect(document.getElementById('kinetic-endcard-sources-trigger')).toHaveAttribute(
-      'tabindex',
-      '-1',
-    );
-
-    await user.click(screen.getByRole('button', { name: kineticSpeechCopy.controls.skip }));
-    expect(screen.getByRole('button', { name: kineticSpeechCopy.controls.replay })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: kineticSpeechCopy.controls.skip })).not.toBeInTheDocument();
-
-    const endcard = document.getElementById('kinetic-endcard');
-    const join = document.getElementById('kinetic-fin-join');
-    const url = document.getElementById('kinetic-fin-url');
-    const sourcesTrigger = document.getElementById('kinetic-endcard-sources-trigger');
-    expect(endcard).toHaveAttribute('aria-hidden', 'false');
-    expect(endcard?.hasAttribute('inert')).toBe(false);
-    expect(join).toHaveAttribute('tabindex', '0');
-    expect(url).toHaveAttribute('tabindex', '0');
-    expect(sourcesTrigger).toHaveAttribute('tabindex', '0');
-    expect(join).toHaveAttribute('href', '/#volunteer');
-    // Three word reels still present after settle path
-    expect(document.querySelectorAll('[data-k-domain-slot]')).toHaveLength(
-      kineticSpeechRollerSlots.length,
-    );
-    expect(document.querySelectorAll('[data-k-domain-reel]')).toHaveLength(
-      kineticSpeechRollerSlots.length,
-    );
+    expect(document.getElementById('kinetic-control-skip')).toBeNull();
+    expect(screen.queryByRole('button', { name: /skip to end/i })).not.toBeInTheDocument();
   });
 
   it('replay drops endcard interactivity before film restarts', async () => {
     const user = userEvent.setup();
     render(<KineticSpeechFilm />);
     await waitForFilmControls();
-    await user.click(screen.getByRole('button', { name: kineticSpeechCopy.controls.skip }));
+    await act(async () => {
+      for (const fn of gsapCallFns) {
+        fn();
+      }
+    });
     expect(document.getElementById('kinetic-fin-join')).toHaveAttribute('tabindex', '0');
     expect(document.getElementById('kinetic-endcard-sources-trigger')).toHaveAttribute(
       'tabindex',
       '0',
     );
 
+    await user.click(screen.getByRole('button', { name: kineticSpeechCopy.controls.pause }));
     await user.click(screen.getByRole('button', { name: kineticSpeechCopy.controls.replay }));
     // phase flips to playing immediately — CTAs inert again
     expect(document.getElementById('kinetic-fin-join')).toHaveAttribute('tabindex', '-1');
