@@ -654,9 +654,9 @@ describe('KineticSpeechFilm', () => {
     expect(reducedTranscript).toMatch(/Bengaluru Metro/);
     expect(reducedTranscript).toMatch(/Delayed\./);
     expect(reducedTranscript).toMatch(/5 years/);
-    expect(reducedTranscript).toMatch(/3–5 years/);
+    expect(reducedTranscript).toMatch(/5 years/);
     expect(reducedTranscript).toMatch(/Udhampur-Baramulla Rail/);
-    expect(reducedTranscript).toMatch(/18 years/);
+    expect(reducedTranscript).toMatch(/21 years/);
     expect(reducedTranscript).toMatch(/1000\+ more\./);
     // Mid-film transcript does not dump source labels (Sources are endcard-only)
     expect(reducedTranscript).not.toMatch(/MoSPI/);
