@@ -18,10 +18,7 @@ describe('CivicPulseNavbar', () => {
     expect(screen.getByText('d.j.p')).toBeInTheDocument();
     expect(screen.getByRole('navigation', { name: 'Main navigation' })).toBeInTheDocument();
     expect(screen.getByLabelText(/Language/i)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Digital speech/i })).toHaveAttribute(
-      'href',
-      '/speech',
-    );
+    expect(screen.getByRole('link', { name: /^Speech$/i })).toHaveAttribute('href', '/speech');
     expect(screen.getByRole('link', { name: /Volunteer/i })).toHaveAttribute(
       'href',
       '#volunteer',

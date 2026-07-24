@@ -33,9 +33,15 @@ export const contributeLinkMeta: readonly ContributeLinkMeta[] = [
     id: 'contribute-skills',
     href: `#${volunteerSectionId}`,
   },
+  {
+    kind: 'ideas',
+    id: 'contribute-ideas',
+    href: 'https://www.reddit.com/r/DataJantaParty',
+    external: true,
+  },
 ] as const;
 
 export const civicPulseFooterLinkMeta = [
   { id: 'footer-contact', href: 'mailto:datajantaparty@gmail.com', labelKey: 'contact' as const },
-  { id: 'footer-privacy', href: '#', labelKey: 'privacy' as const },
+  // { id: 'footer-privacy', href: '#', labelKey: 'privacy' as const },
 ] as const;

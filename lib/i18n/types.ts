@@ -2,7 +2,7 @@ export const LOCALES = ['en', 'hi'] as const;
 
 export type Locale = (typeof LOCALES)[number];
 
-export type ContributeKind = 'data' | 'apps' | 'code' | 'money' | 'skills';
+export type ContributeKind = 'data' | 'apps' | 'code' | 'money' | 'skills' | 'ideas';
 
 export interface ContributeCopy {
   readonly title: string;
@@ -63,6 +63,13 @@ export interface Messages {
       readonly phone: { readonly label: string; readonly placeholder: string };
       readonly city: { readonly label: string; readonly placeholder: string };
       readonly interest: { readonly label: string; readonly placeholder: string };
+    };
+    readonly errors: {
+      readonly form: string;
+      readonly required: string;
+      readonly invalidEmail: string;
+      readonly invalidPhone: string;
+      readonly tooLong: string;
     };
   };
   readonly footer: {

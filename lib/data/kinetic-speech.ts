@@ -6,7 +6,7 @@
  * GSAP schedules via atBeat(i) so text, pulses, and loading ticks land only
  * on musical beats — never on random energy spikes.
  *
- * Arc: Chalta Hai → Delay (deadline → project cards → flood) → Divide → Lack →
+ * Arc: Chalta Hai → Delay (deadline → project cards → flood) → Divide →
  *      Demand → Imagine → Gandhi / We are the change → Virtues → India →
  *      Abki baar → endcard Sources + CTA
  */
@@ -80,10 +80,10 @@ export type DelayedProjectSource = {
  */
 export const DELAYED_PROJECT_FACTS = [
   { project: 'Bullet Train', years: '5 years' },
-  { project: 'Delhi–Mumbai Expressway', years: '3–4 years' },
+  { project: 'Delhi–Mumbai Expressway', years: '4 years' },
   { project: '5th-gen fighter (AMCA)', years: '10+ years' },
   { project: 'Bengaluru Metro', years: '3–5 years' },
-  { project: 'Jewar Airport (Noida Intl.)', years: '4–5 years' },
+  { project: 'Jewar Airport (Noida Intl.)', years: '5 years' },
   { project: 'Udhampur-Baramulla Rail', years: '18 years' },
 ] as const satisfies readonly DelayedProjectFact[];
 
@@ -288,7 +288,7 @@ export type KineticBeat =
       role?: TypeRole;
     }
   | {
-      /** Quote + attribution on one slide (Gandhi). */
+      /** Quote + attribution on one slide (Gandhi close). */
       kind: 'quote';
       id: string;
       text: string;
@@ -361,6 +361,7 @@ export const kineticSpeechCopy = {
   },
   a11y: {
     region: 'Kinetic digital speech',
+    loading: 'Loading speech',
     playing: 'Speech playing',
     paused: 'Speech paused',
     ended: 'Speech ended',
@@ -508,7 +509,10 @@ function wantsKickSnap(beat: KineticBeat): boolean {
   if (beat.kind === 'line' && (beat.role === 'slam-xl' || beat.role === 'brand')) {
     return true;
   }
-  if (beat.kind === 'line' && (beat.id === 'a6-change' || beat.id === 'a6-india')) {
+  if (
+    beat.kind === 'line' &&
+    (beat.id === 'a6-change' || beat.id === 'a6-action' || beat.id === 'a6-india')
+  ) {
     return true;
   }
   return false;
@@ -789,10 +793,11 @@ const kineticSpeechActs: readonly KineticAct[] = [
         kind: 'sticky',
         id: 'a2-waiting',
         prefix: 'Still waiting',
-        prefixRole: 'close',
+        // Same body role as Deadline sticky so “Still waiting…” matches “Deadline extended…” size
+        prefixRole: 'body',
         inline: true,
         heartbeat: true,
-        steps: [{ suffix: '', hold: b(1), dots: b(3), role: 'close' }],
+        steps: [{ suffix: '', hold: b(1), dots: b(3), role: 'body' }],
         exitHold: b(1),
       },
       /**
@@ -898,45 +903,11 @@ const kineticSpeechActs: readonly KineticAct[] = [
     ],
   },
 
-  // ── ACT 4 — Lack ───────────────────────────────────────────────────
+  // ── ACT 4 — Demand (Divide → Demand → Imagine) ────────────────────
+  // Thesis bookend + solo "We want" + rapid list + pair slam "now".
+  // Thesis enough uses b(7). Film still ends with music at 142s.
   {
     id: 'act4',
-    label: 'Lack',
-    beats: [
-      {
-        kind: 'sticky',
-        id: 'a4-lack',
-        prefix: "India doesn't lack",
-        inline: true,
-        steps: [
-          // +1 beat each so long “India doesn't lack …” lines read cleanly
-          { suffix: 'intelligence.', hold: b(3) },
-          { suffix: 'ambition.', hold: b(3) },
-          { suffix: 'courage.', hold: b(3) },
-        ],
-        exitHold: b(1),
-      },
-      {
-        kind: 'pair',
-        id: 'a4-lack-hit',
-        lead: 'What we lack…',
-        hit: 'accountability.',
-        holdLead: holdFor('What we lack…', 'body'),
-        // Slightly longer slam settle so “accountability.” lands after the triad
-        holdHit: b(3),
-        pulseHit: true,
-        heartbeat: true,
-      },
-      // Hardcut into Demand — no breath pad (budget for holdFor Demand holds + music tail)
-    ],
-  },
-
-  // ── ACT 4b — Demand (Lack → Demand → Imagine) ─────────────────────
-  // Thesis bookend + fast wide sticky (opacity-stack morph) + pair slam "now".
-  // Sticky holds [2,4,2] — short morph with extra read time on long governance
-  // suffix. Thesis enough uses b(7). Film still ends with music at 142s.
-  {
-    id: 'act4b',
     label: 'Demand',
     beats: [
       {
@@ -946,25 +917,28 @@ const kineticSpeechActs: readonly KineticAct[] = [
         text: 'Enough is enough.',
         role: 'close',
         motion: 'hardcut',
-        // Thesis floor is 5; +2 beats (~0.9s) for thesis weight before the morph
+        // Thesis floor is 5; +2 beats (~0.9s) for thesis weight before We want
         hold: b(7),
         heartbeat: true,
         wide: true,
       },
       {
-        // Sticky morph: fixed "We want" + suffix swaps (equal short holds).
-        // wide: opacity-stack + longest sizer (no position thrash); gap CSS for spacing
-        kind: 'sticky',
+        // Solo plant — then the three demands flash as rapid words
+        kind: 'line',
         id: 'a4b-want',
-        prefix: 'We want',
-        inline: true,
+        text: 'We want',
+        role: 'close',
+        motion: 'pop',
+        hold: holdFor('We want', 'body'),
+        heartbeat: true,
         wide: true,
-        steps: [
-          { suffix: 'development,', hold: b(2) },
-          { suffix: 'no corruption,', hold: b(2) },
-          { suffix: 'accountability,', hold: b(2) },
-        ],
-        // No exitHold — last suffix hold is the settle before the "now" punch
+      },
+      {
+        kind: 'rapid',
+        id: 'a4b-want-list',
+        words: ['development', 'no corruption', 'accountability'],
+        holdEach: 2,
+        role: 'body',
       },
       {
         // Lead close + slam "now." punch (pair total hold = former thesis line budget)
@@ -1007,9 +981,9 @@ const kineticSpeechActs: readonly KineticAct[] = [
         hit: 'Cleaned. Caught. Fixed.',
         leadRole: 'body',
         hitRole: 'close',
-        // Lead snug (familiar cold-open); hit is three short punches (budget vs kick-tail)
-        holdLead: b(2),
-        holdHit: b(2),
+        // Slightly longer than cold-open snug so reverse scenes can be read
+        holdLead: b(3),
+        holdHit: b(3),
         wide: true,
         heartbeat: true,
       },
@@ -1022,13 +996,13 @@ const kineticSpeechActs: readonly KineticAct[] = [
         fixedRole: 'slam',
         stepRole: 'body',
         steps: [
-          // One-word problem state snug; multi-word process ≥1.5 (~0.64s+)
-          { text: 'climbing.', hold: b(1) },
-          { text: 'Source detected.', hold: b(1.5) },
-          { text: 'Issue fixed.', hold: b(1.5) },
+          // Slight air over former snug holds so process is readable
+          { text: 'climbing.', hold: b(1.5) },
+          { text: 'Source detected.', hold: b(2) },
+          { text: 'Issue fixed.', hold: b(2) },
         ],
       },
-      // Project lifecycle process (half-beat steps keep kick-tail; morph inventory not slam punches)
+      // Project lifecycle process (morph inventory — not slam punches)
       {
         kind: 'sticky-pair',
         id: 'a5-project',
@@ -1037,10 +1011,10 @@ const kineticSpeechActs: readonly KineticAct[] = [
         fixedRole: 'body',
         stepRole: 'body',
         steps: [
-          { text: 'Track against time.', hold: b(1.5) },
-          { text: 'Accountability set.', hold: b(1.5) },
-          { text: 'Updated monthly.', hold: b(1.5) },
-          { text: 'Project finished.', hold: b(1.5) },
+          { text: 'Track against time.', hold: b(2) },
+          { text: 'Accountability set.', hold: b(2) },
+          { text: 'Updated monthly.', hold: b(2) },
+          { text: 'Project finished.', hold: b(2) },
         ],
       },
       {
@@ -1050,10 +1024,10 @@ const kineticSpeechActs: readonly KineticAct[] = [
         prefixRole: 'body',
         inline: true,
         steps: [
-          // Snappy morph (1 beat each) — percussion inventory, not thesis reading
-          { suffix: 'project.', hold: b(1) },
-          { suffix: 'deadline.', hold: b(1) },
-          { suffix: 'rupee.', hold: b(1) },
+          // Still snappy morph, +½ beat so project/deadline/rupee register
+          { suffix: 'project.', hold: b(1.5) },
+          { suffix: 'deadline.', hold: b(1.5) },
+          { suffix: 'rupee.', hold: b(1.5) },
         ],
         // No exitHold — hardcut into Public / Honest / On time triad
       },
@@ -1090,7 +1064,7 @@ const kineticSpeechActs: readonly KineticAct[] = [
     ],
   },
 
-  // ── ACT 6 — Gandhi / virtues / India / Abki baar / CTA ─────────────
+  // ── ACT 6 — Gandhi / We are the change / virtues / India / Abki baar / CTA ─
   {
     id: 'act6',
     label: 'We are the change',
@@ -1128,10 +1102,10 @@ const kineticSpeechActs: readonly KineticAct[] = [
       {
         kind: 'line',
         id: 'a6-build',
-        text: "Let's build",
+        text: "Let's build a",
         role: 'body',
         motion: 'rise',
-        hold: holdFor("Let's build", 'body'),
+        hold: holdFor("Let's build a", 'body'),
       },
       {
         kind: 'rapid',
