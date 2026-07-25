@@ -11,7 +11,7 @@ export function CivicPulseHomePageView({ className }: CivicPulseHomePageViewProp
   return (
     <div
       id="civic-pulse-home"
-      className={cn('flex w-full flex-col gap-0 pb-24 md:pb-32', className)}
+      className={cn('flex w-full flex-col gap-0 pb-32 md:pb-40', className)}
     >
       <HomeBrand />
       <JoinMovement />

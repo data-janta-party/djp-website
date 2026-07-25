@@ -1,7 +1,104 @@
 import { renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { useStorySnapWheel } from './useStorySnapWheel';
+import {
+  resolveSpringTarget,
+  SPRING_DISTANCE_RATIO,
+  SPRING_VELOCITY_THRESHOLD,
+  useStorySnapWheel,
+} from './useStorySnapWheel';
+
+describe('resolveSpringTarget', () => {
+  const base = {
+    fromIndex: 1,
+    panelCount: 4,
+    viewportHeight: 800,
+    velocityPxPerMs: 0,
+  };
+
+  it('springs back when distance and velocity are below threshold', () => {
+    const delta = 800 * SPRING_DISTANCE_RATIO * 0.5; // 12.5% of vh
+    expect(
+      resolveSpringTarget({
+        ...base,
+        deltaFromPanelTop: delta,
+      }),
+    ).toBe(1);
+    expect(
+      resolveSpringTarget({
+        ...base,
+        deltaFromPanelTop: -delta,
+      }),
+    ).toBe(1);
+  });
+
+  it('commits to next when distance exceeds threshold', () => {
+    const delta = 800 * SPRING_DISTANCE_RATIO + 1;
+    expect(
+      resolveSpringTarget({
+        ...base,
+        deltaFromPanelTop: delta,
+      }),
+    ).toBe(2);
+  });
+
+  it('commits to previous when distance exceeds threshold upward', () => {
+    const delta = -(800 * SPRING_DISTANCE_RATIO + 1);
+    expect(
+      resolveSpringTarget({
+        ...base,
+        deltaFromPanelTop: delta,
+      }),
+    ).toBe(0);
+  });
+
+  it('commits on strong velocity even with small residual distance', () => {
+    expect(
+      resolveSpringTarget({
+        ...base,
+        deltaFromPanelTop: 20,
+        velocityPxPerMs: SPRING_VELOCITY_THRESHOLD + 0.1,
+      }),
+    ).toBe(2);
+    expect(
+      resolveSpringTarget({
+        ...base,
+        deltaFromPanelTop: -20,
+        velocityPxPerMs: -(SPRING_VELOCITY_THRESHOLD + 0.1),
+      }),
+    ).toBe(0);
+  });
+
+  it('does not advance past last panel; allows free-scroll past last', () => {
+    expect(
+      resolveSpringTarget({
+        ...base,
+        fromIndex: 3,
+        deltaFromPanelTop: 800 * SPRING_DISTANCE_RATIO + 10,
+      }),
+    ).toBe(3);
+
+    // Deep into footer zone — stay on last index (caller leaves free scroll).
+    expect(
+      resolveSpringTarget({
+        ...base,
+        fromIndex: 3,
+        deltaFromPanelTop: 200,
+        allowFreeScrollPastLast: true,
+      }),
+    ).toBe(3);
+  });
+
+  it('does not go before first panel', () => {
+    expect(
+      resolveSpringTarget({
+        ...base,
+        fromIndex: 0,
+        deltaFromPanelTop: -(800 * SPRING_DISTANCE_RATIO + 10),
+      }),
+    ).toBe(0);
+  });
+});
 
 describe('useStorySnapWheel', () => {
   afterEach(() => {
@@ -49,7 +146,8 @@ describe('useStorySnapWheel', () => {
       new WheelEvent('wheel', { deltaY: 80, bubbles: true, cancelable: true }),
     );
 
-    expect(hold).toHaveBeenCalled();
+    expect(hold).toHaveBeenCalledWith(expect.objectContaining({ direction: 1 }));
+    // Wheel hold path consumes the gesture without advancing panels.
     expect(scrollTo).not.toHaveBeenCalled();
   });
 
@@ -115,6 +213,7 @@ describe('useStorySnapWheel', () => {
 
     expect(scrollTo).not.toHaveBeenCalled();
     expect(event.defaultPrevented).toBe(false);
+    // Hook keeps CSS snap off while owning spring gear.
     expect(document.documentElement.style.scrollSnapType).toBe('none');
 
     // Simulate tiny scroll still near volunteer top — must NOT re-enable snap.
@@ -130,6 +229,16 @@ describe('useStorySnapWheel', () => {
       toJSON: () => ({}),
     });
     window.dispatchEvent(new Event('scroll'));
+    expect(document.documentElement.style.scrollSnapType).toBe('none');
+  });
+
+  it('disables CSS snap while active so spring can rebound', () => {
+    document.documentElement.classList.add('story-snap');
+    document.body.innerHTML = `
+      <div class="story-snap-panel" id="p0" style="height: 100px"></div>
+      <div class="story-snap-panel" id="p1" style="height: 100px"></div>
+    `;
+    renderHook(() => useStorySnapWheel(true));
     expect(document.documentElement.style.scrollSnapType).toBe('none');
   });
 });
