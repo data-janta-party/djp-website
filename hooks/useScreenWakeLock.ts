@@ -23,8 +23,14 @@ type WakeLockNavigator = Navigator & {
  *
  * Used so mobile screens do not sleep during the kinetic speech film.
  * Unsupported browsers, denied permissions, and non-secure contexts no-op.
- * Locks are re-requested after the tab becomes visible again (browsers release
- * them automatically when the page is hidden).
+ *
+ * Re-acquisition strategy:
+ * - Request when `active` becomes true
+ * - Re-request after the tab becomes visible again (browsers release locks when hidden)
+ * - Re-request on user activation (pointer/key) when no lock is held — covers failed
+ *   cold-start requests that need a gesture (common on mobile “tap for sound”)
+ * - One automatic re-request after an unexpected release while still active and visible
+ *   (further retries wait for a gesture or visibility return to avoid loops)
  */
 export function useScreenWakeLock(active: boolean): void {
   useEffect(() => {
@@ -40,6 +46,10 @@ export function useScreenWakeLock(active: boolean): void {
     let cancelled = false;
     let sentinel: WakeLockSentinelLike | null = null;
     let requesting = false;
+    /** One auto re-acquire after system release; reset on gesture / visibility. */
+    let allowReleaseAutoRetry = true;
+
+    const hasLiveLock = () => Boolean(sentinel && !sentinel.released);
 
     const release = async () => {
       const current = sentinel;
@@ -57,7 +67,7 @@ export function useScreenWakeLock(active: boolean): void {
       if (cancelled || requesting || document.visibilityState !== 'visible') {
         return;
       }
-      if (sentinel && !sentinel.released) {
+      if (hasLiveLock()) {
         return;
       }
       requesting = true;
@@ -78,11 +88,26 @@ export function useScreenWakeLock(active: boolean): void {
             if (sentinel === next) {
               sentinel = null;
             }
+            // Browsers release on hide; visibilitychange re-acquires. For other
+            // releases while still visible + active, try once without looping.
+            if (
+              cancelled ||
+              !allowReleaseAutoRetry ||
+              document.visibilityState !== 'visible'
+            ) {
+              return;
+            }
+            allowReleaseAutoRetry = false;
+            queueMicrotask(() => {
+              if (!cancelled && !hasLiveLock()) {
+                void request();
+              }
+            });
           },
           { once: true },
         );
       } catch {
-        /* permission denied, battery saver, insecure context, etc. */
+        /* permission denied, battery saver, insecure context, needs gesture, etc. */
       } finally {
         requesting = false;
       }
@@ -90,16 +115,30 @@ export function useScreenWakeLock(active: boolean): void {
 
     const onVisibility = () => {
       if (document.visibilityState === 'visible') {
+        allowReleaseAutoRetry = true;
         void request();
       }
     };
 
+    /** Cold autoplay often rejects wake lock; re-try on the same gestures that unlock audio. */
+    const onUserActivation = () => {
+      if (!hasLiveLock()) {
+        allowReleaseAutoRetry = true;
+        void request();
+      }
+    };
+
+    const activationOpts: AddEventListenerOptions = { capture: true };
     void request();
     document.addEventListener('visibilitychange', onVisibility);
+    document.addEventListener('pointerdown', onUserActivation, activationOpts);
+    document.addEventListener('keydown', onUserActivation, activationOpts);
 
     return () => {
       cancelled = true;
       document.removeEventListener('visibilitychange', onVisibility);
+      document.removeEventListener('pointerdown', onUserActivation, activationOpts);
+      document.removeEventListener('keydown', onUserActivation, activationOpts);
       void release();
     };
   }, [active]);

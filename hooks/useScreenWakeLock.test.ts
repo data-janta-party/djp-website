@@ -9,9 +9,16 @@ type MockSentinel = {
   addEventListener: ReturnType<typeof vi.fn>;
 };
 
-function installWakeLock() {
+function installWakeLock(options?: { failUntil?: number }) {
   const sentinels: MockSentinel[] = [];
+  let callCount = 0;
+  const failUntil = options?.failUntil ?? 0;
+
   const request = vi.fn(async () => {
+    callCount += 1;
+    if (callCount <= failUntil) {
+      throw new Error('NotAllowedError: requires user activation');
+    }
     const listeners = new Map<string, () => void>();
     const sentinel: MockSentinel = {
       released: false,
@@ -107,9 +114,9 @@ describe('useScreenWakeLock', () => {
       expect(request).toHaveBeenCalledTimes(1);
     });
 
-    // Simulate browser auto-release on hide.
-    await sentinels[0]!.release();
+    // Simulate browser auto-release on hide (visibility already hidden when released).
     visibility = 'hidden';
+    await sentinels[0]!.release();
     document.dispatchEvent(new Event('visibilitychange'));
 
     visibility = 'visible';
@@ -118,6 +125,52 @@ describe('useScreenWakeLock', () => {
     await vi.waitFor(() => {
       expect(request).toHaveBeenCalledTimes(2);
     });
+  });
+
+  it('re-requests on user activation after a failed cold-start request', async () => {
+    const { request, sentinels } = installWakeLock({ failUntil: 1 });
+    renderHook(() => useScreenWakeLock(true));
+
+    await vi.waitFor(() => {
+      expect(request).toHaveBeenCalledTimes(1);
+    });
+    expect(sentinels).toHaveLength(0);
+
+    // Same gesture path as “Tap for sound” / play controls.
+    document.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+
+    await vi.waitFor(() => {
+      expect(request).toHaveBeenCalledTimes(2);
+    });
+    expect(sentinels).toHaveLength(1);
+    expect(sentinels[0]?.released).toBe(false);
+  });
+
+  it('re-requests after an unexpected release while still visible', async () => {
+    const { request, sentinels } = installWakeLock();
+    renderHook(() => useScreenWakeLock(true));
+
+    await vi.waitFor(() => {
+      expect(request).toHaveBeenCalledTimes(1);
+    });
+
+    // Platform released the lock without hiding the tab.
+    await sentinels[0]!.release();
+
+    await vi.waitFor(() => {
+      expect(request).toHaveBeenCalledTimes(2);
+    });
+    expect(sentinels).toHaveLength(2);
+    expect(sentinels[1]?.released).toBe(false);
+  });
+
+  it('does not request on gesture when inactive', async () => {
+    const { request } = installWakeLock();
+    renderHook(() => useScreenWakeLock(false));
+
+    document.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    await Promise.resolve();
+    expect(request).not.toHaveBeenCalled();
   });
 
   it('no-ops when Wake Lock API is missing', async () => {
