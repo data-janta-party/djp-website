@@ -50,9 +50,9 @@ test.describe('CivicPulseHomePage · App', () => {
   test('digital speech page is kinetic film only', async ({ page }) => {
     await gotoAppRoute(page, '/speech');
     await expect(page.locator('#kinetic-speech-film')).toBeVisible();
-    // Auto-starts on land — no intermediate poster Play gate
-    await expect(page.locator('#kinetic-play-button')).toHaveCount(0);
-    await expect(page.locator('#kinetic-controls')).toBeVisible();
+    // Big play gate on land — film starts after user gesture
+    await expect(page.locator('#kinetic-play-button')).toBeVisible();
+    await expect(page.locator('#kinetic-control-home')).toBeVisible();
     await expect(page.locator('#kinetic-speech-audio')).toHaveAttribute(
       'src',
       '/audio/speech-trailer.mp3',

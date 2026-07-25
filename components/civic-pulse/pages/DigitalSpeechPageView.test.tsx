@@ -20,7 +20,7 @@ describe('DigitalSpeechPageView', () => {
     render(<DigitalSpeechPageView />);
     expect(document.getElementById('digital-speech')).toBeInTheDocument();
     expect(document.getElementById('kinetic-speech-film')).toBeInTheDocument();
-    // Page wires KineticSpeechFilm for auto-start (mocked here as shell).
+    // Page wires KineticSpeechFilm (mocked here as shell with controls).
     expect(screen.getByRole('button', { name: kineticSpeechCopy.controls.mute })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: /Which India do you choose/i })).not.toBeInTheDocument();
     expect(document.querySelectorAll('video')).toHaveLength(0);

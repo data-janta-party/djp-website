@@ -122,8 +122,16 @@ function timelinePositionSets(position: 'relative' | 'absolute') {
   );
 }
 
-/** Wait until auto-start finishes trailer buffer and control chrome is shown. */
+/** Hit the big play gate (if present), then wait for transport chrome. */
 async function waitForFilmControls() {
+  const playGate = document.getElementById('kinetic-play-button');
+  if (playGate) {
+    await act(async () => {
+      playGate.click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+  }
   await vi.waitFor(() => {
     expect(
       screen.getByRole('button', { name: kineticSpeechCopy.controls.pause }),
@@ -145,7 +153,7 @@ describe('KineticSpeechFilm', () => {
       writable: true,
       value: vi.fn(),
     });
-    // Default: media already buffered so auto-start does not hang on canplay.
+    // Default: media already buffered so play gate does not hang on canplay.
     Object.defineProperty(window.HTMLMediaElement.prototype, 'readyState', {
       configurable: true,
       get: () => 4, // HAVE_ENOUGH_DATA
@@ -333,20 +341,28 @@ describe('KineticSpeechFilm', () => {
   });
 
 
-  it('auto-starts film on mount without poster gate', async () => {
+  it('shows big play gate on mount and starts film on play', async () => {
     render(<KineticSpeechFilm />);
-    await act(async () => {
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-    expect(document.getElementById('kinetic-poster')).not.toBeInTheDocument();
+    expect(document.getElementById('kinetic-play-button')).toBeInTheDocument();
+    expect(document.getElementById('kinetic-play-gate')).toBeInTheDocument();
     expect(document.getElementById('kinetic-media-loading')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: kineticSpeechCopy.controls.pause }),
+    ).not.toBeInTheDocument();
+    // Top-left Back uses the shared Button atom
+    const back = screen.getByRole('button', { name: kineticSpeechCopy.controls.home });
+    expect(back).toHaveAttribute('id', 'kinetic-control-home');
+    expect(back).toHaveAttribute('data-slot', 'button');
+    expect(document.getElementById('kinetic-control-home-icon')).toBeInTheDocument();
+
+    await waitForFilmControls();
+    expect(document.getElementById('kinetic-play-button')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: kineticSpeechCopy.controls.mute })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: kineticSpeechCopy.controls.pause })).toBeInTheDocument();
     expect(timelineApis.length).toBeGreaterThan(0);
   });
 
-  it('shows a spinner while the trailer is buffering on cold load', async () => {
+  it('shows a spinner while the trailer is buffering after play', async () => {
     Object.defineProperty(window.HTMLMediaElement.prototype, 'readyState', {
       configurable: true,
       get: () => 0, // HAVE_NOTHING — force waitForAudioData
@@ -358,8 +374,17 @@ describe('KineticSpeechFilm', () => {
     });
 
     render(<KineticSpeechFilm />);
+    // Poster idle — no spinner until play
+    expect(document.getElementById('kinetic-media-loading')).not.toBeInTheDocument();
+    expect(document.getElementById('kinetic-play-button')).toBeInTheDocument();
 
-    // Spinner is present from mount / while waiting for canplay
+    await act(async () => {
+      document.getElementById('kinetic-play-button')!.click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // Spinner while waiting for canplay
     const loading = await vi.waitFor(() => {
       const el = document.getElementById('kinetic-media-loading');
       expect(el).toBeTruthy();
@@ -397,7 +422,7 @@ describe('KineticSpeechFilm', () => {
     expect(screen.getByRole('button', { name: kineticSpeechCopy.controls.pause })).toBeInTheDocument();
   });
 
-  it('surfaces tap-for-sound when autoplay play() is blocked', async () => {
+  it('surfaces tap-for-sound when play() is blocked after play gate', async () => {
     Object.defineProperty(window.HTMLMediaElement.prototype, 'play', {
       configurable: true,
       writable: true,
@@ -405,11 +430,7 @@ describe('KineticSpeechFilm', () => {
     });
 
     render(<KineticSpeechFilm />);
-    await act(async () => {
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
-    });
+    await waitForFilmControls();
 
     expect(
       screen.getByRole('button', { name: kineticSpeechCopy.a11y.soundBlocked }),
@@ -418,7 +439,7 @@ describe('KineticSpeechFilm', () => {
     expect(
       document.querySelector('#kinetic-control-sound-icon path, #kinetic-control-sound-icon line'),
     ).toBeTruthy();
-    // Spinner must not stick after autoplay is blocked
+    // Spinner must not stick after play is blocked
     expect(document.getElementById('kinetic-media-loading')).not.toBeInTheDocument();
 
     // Gesture unlock retries play and clears the control
@@ -439,8 +460,8 @@ describe('KineticSpeechFilm', () => {
   });
 
   it('deadline sticky and project-delay cards schedule kick scale heartbeats', async () => {
-    const user = userEvent.setup();
     render(<KineticSpeechFilm />);
+    await waitForFilmControls();
     expect(timelineApis.length).toBeGreaterThan(0);
     const scaleToCalls = timelineApis.flatMap((api) =>
       api.to.mock.calls.filter((call) => {
@@ -464,8 +485,8 @@ describe('KineticSpeechFilm', () => {
   });
 
   it('all morph stickies GSAP never toggle suffix position (opacity stack only)', async () => {
-    const user = userEvent.setup();
     render(<KineticSpeechFilm />);
+    await waitForFilmControls();
     expect(timelineApis.length).toBeGreaterThan(0);
 
     const relativeSets = timelinePositionSets('relative');
@@ -576,6 +597,9 @@ describe('KineticSpeechFilm', () => {
     await user.click(screen.getByRole('button', { name: kineticSpeechCopy.controls.pause }));
 
     expect(pauseMock).toHaveBeenCalled();
+    // Big centered play gate (not a small bottom-rail resume chip)
+    expect(document.getElementById('kinetic-play-button')).toBeInTheDocument();
+    expect(document.getElementById('kinetic-control-resume')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: kineticSpeechCopy.controls.play })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: kineticSpeechCopy.controls.replay })).toBeInTheDocument();
 
@@ -588,7 +612,7 @@ describe('KineticSpeechFilm', () => {
     expect(tl!.time.mock.calls.length).toBe(timeCallsBeforePause);
   });
 
-  it('resume restarts audio + scrub without free-running the timeline', async () => {
+  it('resume via big play restarts audio + scrub without free-running the timeline', async () => {
     const user = userEvent.setup();
     render(<KineticSpeechFilm />);
     await waitForFilmControls();
@@ -602,7 +626,7 @@ describe('KineticSpeechFilm', () => {
     tl!.play.mockClear();
     tl!.time.mockClear();
 
-    await user.click(screen.getByRole('button', { name: kineticSpeechCopy.controls.play }));
+    await user.click(document.getElementById('kinetic-play-button')!);
     await act(async () => {
       await Promise.resolve();
       await new Promise((r) => requestAnimationFrame(() => r(undefined)));
@@ -612,6 +636,7 @@ describe('KineticSpeechFilm', () => {
     expect(playMock).toHaveBeenCalled();
     // Visual still scrubbed, never free-run
     expect(tl!.play).not.toHaveBeenCalled();
+    expect(document.getElementById('kinetic-play-button')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: kineticSpeechCopy.controls.pause })).toBeInTheDocument();
   });
 
@@ -789,8 +814,8 @@ describe('KineticSpeechFilm', () => {
   });
 
   it('mid-film project-delays has no Sources dock', async () => {
-    const user = userEvent.setup();
     render(<KineticSpeechFilm />);
+    await waitForFilmControls();
 
     expect(document.getElementById('a2-project-delays')).toBeInTheDocument();
     expect(document.querySelector('#a2-project-delays [data-k-delay-sources]')).toBeNull();
@@ -922,11 +947,8 @@ describe('KineticSpeechFilm', () => {
     it('shows scrubber and seeks with next/prev when forced', async () => {
       const user = userEvent.setup();
       render(<KineticSpeechFilm forceDevSlideNav />);
-      // Auto-starts on mount — no poster Play gate
-      await act(async () => {
-        await Promise.resolve();
-        await Promise.resolve();
-      });
+      // Play gate first — scrubber appears once the film is running
+      await waitForFilmControls();
 
       const nav = document.getElementById('kinetic-dev-slide-nav');
       expect(nav).toBeInTheDocument();
@@ -958,9 +980,12 @@ describe('KineticSpeechFilm', () => {
         // hash effect schedules seekToSlide (async)
         await Promise.resolve();
         await Promise.resolve();
+        await Promise.resolve();
       });
 
-      expect(document.getElementById('kinetic-dev-slide-nav')).toBeInTheDocument();
+      await vi.waitFor(() => {
+        expect(document.getElementById('kinetic-dev-slide-nav')).toBeInTheDocument();
+      });
       expect(document.getElementById('kinetic-dev-slide-label')?.textContent).toMatch(
         /3\s*\/\s*\d+/,
       );

@@ -348,7 +348,8 @@ export const kineticSpeechCopy = {
     replay: 'Replay',
     pause: 'Pause',
     play: 'Play',
-    home: 'Back home',
+    /** Visible label on the top-left film chrome (navbar-style pill). */
+    home: 'Back',
   },
   a11y: {
     region: 'Kinetic digital speech',

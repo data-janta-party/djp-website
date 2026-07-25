@@ -8,12 +8,12 @@ export interface DigitalSpeechPageViewProps extends React.HTMLAttributes<HTMLDiv
 /**
  * Digital speech — timed kinetic manifesto film.
  *
- * Auto-starts on mount so `/speech` plays immediately; browsers may still
- * require a user gesture for unmuted audio (tap-for-sound UI handles that).
+ * Shows a big play gate first; playback starts on user gesture (also unlocks
+ * unmuted audio more reliably than cold-load autoplay).
  */
 export function DigitalSpeechPageView({ className }: DigitalSpeechPageViewProps) {
   return (
-    <div id="digital-speech" className={cn('flex w-full flex-col gap-0', className)}>
+    <div id="digital-speech" className={cn('relative min-h-svh w-full', className)}>
       <KineticSpeechFilm />
     </div>
   );

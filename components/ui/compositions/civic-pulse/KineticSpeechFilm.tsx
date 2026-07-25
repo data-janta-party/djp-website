@@ -1,11 +1,13 @@
 'use client';
 
 import gsap from 'gsap';
-import { Pause, Play, RotateCcw, Volume2, VolumeX } from 'lucide-react';
+import { ChevronLeft, Pause, Play, RotateCcw, Volume2, VolumeX } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -50,6 +52,7 @@ import {
   kickBeatsInRange,
   wholeBeatsInRange,
 } from '@/lib/data/kinetic-speech-beatmap';
+import { Button } from '@/components/ui/atoms/Button';
 import {
   HoverCard,
   HoverCardContent,
@@ -66,9 +69,9 @@ export interface KineticSpeechFilmProps extends React.HTMLAttributes<HTMLDivElem
   readonly className?: string;
   /**
    * Storybook / tests:
-   * - `poster` — static play gate (no autoplay)
+   * - `poster` — static play gate (same as default `/speech`)
    * - `reduced` — transcript fallback
-   * Default (undefined) auto-starts the film on mount for `/speech`.
+   * Default (undefined) shows the big play gate; playback starts on user gesture.
    */
   readonly previewMode?: 'poster' | 'reduced';
   /**
@@ -92,6 +95,15 @@ const CONTROL_ICON_PROPS = {
   'aria-hidden': true as const,
   focusable: false as const,
   className: 'kinetic-control-icon size-5 shrink-0 text-white',
+};
+
+/** Large centered play gate (poster + paused). */
+const PLAY_GATE_ICON_PROPS = {
+  size: 52,
+  strokeWidth: 1.75,
+  'aria-hidden': true as const,
+  focusable: false as const,
+  className: 'kinetic-play-gate-icon shrink-0 text-white',
 };
 
 function subscribeReducedMotion(onChange: () => void): () => void {
@@ -177,23 +189,22 @@ export function KineticSpeechFilm({
   previewMode,
   forceDevSlideNav = false,
 }: KineticSpeechFilmProps) {
+  const router = useRouter();
   const stageRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const timelineRef = useRef<gsap.core.Timeline | null>(null);
   /** rAF id for the audio→visual scrub loop (visual never free-runs). */
   const scrubRafRef = useRef<number | null>(null);
   /**
-   * Poster / Play gate. Production `/speech` passes previewMode="poster" so the
-   * first play() is always a user gesture (autoplay is unreliable on cold loads).
+   * Play gate: film stays on poster until the user hits the big play control
+   * (or Space). First play() is always a user gesture — more reliable than
+   * cold-load autoplay.
    */
-  const stayOnPoster = previewMode === 'poster';
-  const phaseRef = useRef<FilmPhase>(stayOnPoster ? 'poster' : 'playing');
+  const phaseRef = useRef<FilmPhase>('poster');
   /** Last slide index written to hash / HUD (1-based). */
   const slideIndexRef = useRef(0);
   /** Skip re-seeking when hash was updated by scrubber itself. */
   const suppressHashSeekRef = useRef(false);
-  /** Guard so mount auto-start only fires once (after stage/audio ready). */
-  const autoStartedRef = useRef(false);
   /** Latest mute preference for gesture-unlock handlers. */
   const mutedRef = useRef(false);
   /** Cleanup for document-level autoplay unlock listeners. */
@@ -210,7 +221,7 @@ export function KineticSpeechFilm({
    */
   const startScrubLoopRef = useRef<() => void>(() => undefined);
 
-  const [phase, setPhase] = useState<FilmPhase>(stayOnPoster ? 'poster' : 'playing');
+  const [phase, setPhase] = useState<FilmPhase>('poster');
   /** Join/URL interactive after roller settles, while music may still be playing. */
   const [joinReady, setJoinReady] = useState(false);
   /** Endcard Sources HoverCard open state (closed when endcard locks). */
@@ -222,14 +233,11 @@ export function KineticSpeechFilm({
    */
   const [audioBlocked, setAudioBlocked] = useState(false);
   /**
-   * Cold `/speech` loads wait on the multi-MB trailer buffer before first play.
-   * Start true for the auto-start path so direct navigation shows a spinner
-   * instead of a blank black stage; poster stays false until play.
+   * Trailer buffer spinner — only while play/resume waits on media data.
+   * Poster starts idle (big play) with no spinner.
    */
-  const [mediaLoading, setMediaLoading] = useState(!stayOnPoster);
-  const [status, setStatus] = useState<string>(
-    stayOnPoster ? copy.a11y.paused : copy.a11y.loading,
-  );
+  const [mediaLoading, setMediaLoading] = useState(false);
+  const [status, setStatus] = useState<string>(copy.a11y.paused);
   /** DEV scrubber: current 1-based slide (0 = not started). */
   const [slideIndex, setSlideIndex] = useState(0);
 
@@ -274,7 +282,13 @@ export function KineticSpeechFilm({
     mutedRef.current = muted;
   }, [muted]);
 
-  useEffect(() => {
+  // useLayoutEffect: hide site navbar before paint so the brand logo never covers the back control.
+  useLayoutEffect(() => {
+    // Immersive shell only for the film stage — reduced transcript keeps page scroll + site chrome.
+    if (reduced) {
+      hideChrome(false);
+      return;
+    }
     hideChrome(true);
     const audio = audioRef.current;
     return () => {
@@ -290,7 +304,7 @@ export function KineticSpeechFilm({
       clearAudioUnlockRef.current?.();
       clearAudioUnlockRef.current = null;
     };
-  }, [hideChrome, killTimeline]);
+  }, [hideChrome, killTimeline, reduced]);
 
   /**
    * Start/resume the trailer track. Browsers often reject unmuted autoplay when
@@ -1793,66 +1807,14 @@ export function KineticSpeechFilm({
     void startFilm();
   }, [startFilm]);
 
-  /**
-   * Production `/speech` auto-starts on mount once stage + audio nodes exist.
-   * `previewMode="poster"` keeps the Storybook/static play gate.
-   * Dev hash deep-links start via seekToSlide instead of a full restart from 0.
-   *
-   * Strict Mode remount: cleanup clears autoStartedRef so the second mount
-   * starts a fresh film; filmSessionRef invalidates the first in-flight start.
-   */
-  useEffect(() => {
-    if (reduced || stayOnPoster) {
+  /** Big play gate — poster starts the film; paused resumes in place. */
+  const onPlayGate = useCallback(() => {
+    if (phaseRef.current === 'paused') {
+      void resumeFilm();
       return;
     }
-    if (isDevSlideNav && typeof window !== 'undefined') {
-      const hashSlide = parseKineticSlideHash(window.location.hash, slideItems);
-      if (hashSlide != null) {
-        // Hash effect owns start + seek
-        autoStartedRef.current = true;
-        return;
-      }
-    }
-
-    let cancelled = false;
-    let rafId = 0;
-    let attempts = 0;
-    const tryStart = () => {
-      if (cancelled || autoStartedRef.current) {
-        return;
-      }
-      // Wait until layout paints the stage + audio (avoids empty first frame / failed start)
-      if (!stageRef.current || !audioRef.current) {
-        rafId = window.requestAnimationFrame(tryStart);
-        return;
-      }
-      autoStartedRef.current = true;
-      attempts += 1;
-      void startFilm().then((ok) => {
-        if (cancelled) {
-          return;
-        }
-        // Failed start (superseded session / missing stage) — retry a few times
-        if (!ok) {
-          autoStartedRef.current = false;
-          if (attempts < 3) {
-            rafId = window.requestAnimationFrame(tryStart);
-          } else {
-            setMediaLoading(false);
-          }
-        }
-      });
-    };
-    tryStart();
-    return () => {
-      cancelled = true;
-      // Remount must be allowed to auto-start again (React Strict Mode double-mount).
-      autoStartedRef.current = false;
-      if (rafId) {
-        window.cancelAnimationFrame(rafId);
-      }
-    };
-  }, [isDevSlideNav, reduced, slideItems, startFilm, stayOnPoster]);
+    void startFilm();
+  }, [resumeFilm, startFilm]);
 
   /**
    * Build timeline if missing (for mid-film scrub from poster / after kill).
@@ -2161,6 +2123,8 @@ export function KineticSpeechFilm({
 
   const showControls =
     !mediaLoading && (phase === 'playing' || phase === 'paused' || phase === 'ended');
+  const showPlayGate =
+    !mediaLoading && (phase === 'poster' || phase === 'paused');
   const showDevSlideNav =
     isDevSlideNav && !reduced && showControls && slideCount > 0 && slideIndex > 0;
   const activeSlideId =
@@ -2172,7 +2136,8 @@ export function KineticSpeechFilm({
       aria-label={copy.a11y.region}
       aria-busy={mediaLoading || undefined}
       className={cn(
-        'relative h-svh min-h-svh w-screen max-w-none -mx-[calc((100vw-100%)/2)] overflow-hidden bg-black text-white',
+        // Above site navbar (z-50) so top-left back is never covered by the brand logo.
+        'fixed inset-0 z-[100] h-svh min-h-svh w-screen max-w-none overflow-hidden bg-black text-white',
         className,
       )}
     >
@@ -2323,6 +2288,21 @@ export function KineticSpeechFilm({
         </div>
       </div>
 
+      {/* Top-left back — shared Button atom (primary chip, like Volunteer) */}
+      <Button
+        id="kinetic-control-home"
+        type="button"
+        variant="default"
+        size="sm"
+        className="absolute top-[max(0.75rem,env(safe-area-inset-top))] left-[max(0.75rem,env(safe-area-inset-left))] z-50"
+        onClick={() => {
+          router.push('/');
+        }}
+      >
+        <ChevronLeft id="kinetic-control-home-icon" data-icon="inline-start" />
+        {copy.controls.home}
+      </Button>
+
       {showDevSlideNav ? (
         <div
           id="kinetic-dev-slide-nav"
@@ -2361,14 +2341,28 @@ export function KineticSpeechFilm({
         </div>
       ) : null}
 
+      {showPlayGate ? (
+        <div
+          id="kinetic-play-gate"
+          className="pointer-events-none absolute inset-0 z-50 flex items-center justify-center"
+        >
+          <button
+            id="kinetic-play-button"
+            type="button"
+            onClick={onPlayGate}
+            className="kinetic-play-gate pointer-events-auto"
+            aria-label={copy.controls.play}
+          >
+            <Play id="kinetic-play-button-icon" {...PLAY_GATE_ICON_PROPS} />
+          </button>
+        </div>
+      ) : null}
+
       {showControls ? (
         <div
           id="kinetic-controls"
-          className="absolute bottom-0 left-0 right-0 z-40 flex items-center justify-between gap-2 bg-gradient-to-t from-black/85 to-transparent px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-4 sm:py-4 md:px-8"
+          className="absolute bottom-0 left-0 right-0 z-40 flex items-center justify-end gap-2 bg-gradient-to-t from-black/85 to-transparent px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-4 sm:py-4 md:px-8"
         >
-          <Link id="kinetic-control-home" href="/" className="kinetic-control-link">
-            {copy.controls.home}
-          </Link>
           <div
             className="flex flex-wrap items-center justify-end gap-2"
             id="tpl-components-ui-compositions-civic-pulse-kinetic-speech-film-l2148-c11"
@@ -2384,17 +2378,6 @@ export function KineticSpeechFilm({
                 <Pause id="kinetic-control-pause-icon" {...CONTROL_ICON_PROPS} />
               </button>
             ) : null}
-            {phase === 'paused' ? (
-              <button
-                id="kinetic-control-resume"
-                type="button"
-                onClick={() => void resumeFilm()}
-                className="kinetic-control-btn"
-                aria-label={copy.controls.play}
-              >
-                <Play id="kinetic-control-resume-icon" {...CONTROL_ICON_PROPS} />
-              </button>
-            ) : null}
             {audioBlocked && phase === 'playing' ? (
               <button
                 id="kinetic-control-sound"
@@ -2405,7 +2388,7 @@ export function KineticSpeechFilm({
               >
                 <VolumeX id="kinetic-control-sound-icon" {...CONTROL_ICON_PROPS} />
               </button>
-            ) : (
+            ) : phase === 'playing' || phase === 'paused' || phase === 'ended' ? (
               <button
                 id="kinetic-control-mute"
                 type="button"
@@ -2419,7 +2402,7 @@ export function KineticSpeechFilm({
                   <Volume2 id="kinetic-control-unmute-icon" {...CONTROL_ICON_PROPS} />
                 )}
               </button>
-            )}
+            ) : null}
             {phase === 'ended' || phase === 'paused' ? (
               <button
                 id="kinetic-control-replay"

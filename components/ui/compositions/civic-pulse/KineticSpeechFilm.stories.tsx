@@ -11,7 +11,7 @@ const meta = {
     docs: {
       description: {
         component:
-          '“The System We Deserve” kinetic manifesto film for /speech — data-driven GSAP RSVP typography, ~2 min tribal-stomp track, auto-starts on mount, mute, end-card CTA, reduced-motion transcript.',
+          '“The System We Deserve” kinetic manifesto film for /speech — data-driven GSAP RSVP typography, ~2 min tribal-stomp track, big play gate, mute, end-card CTA, reduced-motion transcript.',
       },
     },
   },
@@ -20,7 +20,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const AutoStart: Story = {
+export const Poster: Story = {
   args: {},
 };
 

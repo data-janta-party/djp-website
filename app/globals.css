@@ -347,9 +347,18 @@ html.story-snap #civic-pulse-footer {
   }
 }
 
-/* Kinetic speech film — immersive chrome + mask type */
+/* Kinetic speech film — immersive full-viewport stage (film owns chrome) */
+html.kinetic-speech-active,
+html.kinetic-speech-active body {
+  overflow: hidden;
+}
+
+/* Hide site chrome; film also uses z-[100] so back control wins even before this class paints. */
+html.kinetic-speech-active #civic-pulse-navbar,
 html.kinetic-speech-active #civic-pulse-footer {
-  display: none;
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
 }
 
 /* Initial trailer buffer / first play — white ring on pure black stage */
@@ -377,31 +386,6 @@ html.kinetic-speech-active #civic-pulse-footer {
   }
 }
 
-html.kinetic-speech-active #civic-pulse-navbar {
-  background: transparent;
-  border-color: transparent;
-  backdrop-filter: none;
-}
-
-/*
- * Film chrome: ghost/outline nav controls go light-on-dark.
- * Do NOT paint solid primary CTAs (white fill + dark label) — the global
- * color rule is higher specificity than Tailwind utilities and would make
- * #navbar-volunteer white-on-white.
- */
-html.kinetic-speech-active #civic-pulse-navbar a:not(#navbar-brand):not(#navbar-volunteer),
-html.kinetic-speech-active #civic-pulse-navbar button:not([data-variant='default']) {
-  color: rgba(255, 255, 255, 0.85);
-}
-
-html.kinetic-speech-active #navbar-volunteer {
-  color: var(--primary-foreground);
-}
-
-html.kinetic-speech-active #navbar-brand {
-  color: rgba(255, 255, 255, 0.9);
-}
-
 /* Kinetic speech film — monochrome pure black + white type; Tiranga only on India.
  * Type scale is mobile-first: lower floors on phones so long phrases fit under
  * overflow-hidden; md+ restores cinematic Don’t Blink punch. */
@@ -411,11 +395,11 @@ html.kinetic-speech-active #navbar-brand {
   --kinetic-dim-white: rgba(255, 255, 255, 0.88);
   --kinetic-focus-ring: rgba(255, 255, 255, 0.55);
   /*
-   * Shared type bottom-rail: every primary manifesto line sits its bottom edge here.
-   * ~mid-frame (42% from stage bottom) so big type grows up into the upper half;
-   * floor keeps copy above control chrome on short phones.
+   * Shared type rail: primary manifesto lines sit their bottom edge at mid-stage
+   * so copy is centered in the browser frame; multi-line packs grow upward
+   * (transform-origin 50% 100% — GSAP owns transform, so no translate centering).
    */
-  --kinetic-type-rail-bottom: max(5.5rem, 42%);
+  --kinetic-type-rail-bottom: 50%;
 }
 
 /*
@@ -1026,13 +1010,60 @@ html.kinetic-speech-active #navbar-brand {
   fill: none !important;
 }
 
-.kinetic-control-link {
+/* Centered poster / pause play gate */
+.kinetic-play-gate {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 5.5rem;
+  height: 5.5rem;
+  min-width: 5.5rem;
+  min-height: 5.5rem;
   border-radius: 9999px;
-  padding: 0.5rem 0.75rem;
-  font-size: 0.875rem;
-  color: rgba(255, 255, 255, 0.7);
+  border: 2px solid rgba(255, 255, 255, 0.45);
+  padding: 0;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.55);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35), 0 12px 40px rgba(0, 0, 0, 0.45);
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
 }
 
-.kinetic-control-link:hover {
-  color: #fff;
+.kinetic-play-gate:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.75);
+}
+
+.kinetic-play-gate:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.7);
+  outline-offset: 4px;
+}
+
+.kinetic-play-gate .kinetic-play-gate-icon {
+  width: 2.75rem !important;
+  height: 2.75rem !important;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  display: block;
+  /* Optical center for triangle play glyph */
+  margin-left: 0.2rem;
+  color: #fff !important;
+  stroke: #fff !important;
+  fill: none !important;
+}
+
+@media (min-width: 640px) {
+  .kinetic-play-gate {
+    width: 6.5rem;
+    height: 6.5rem;
+    min-width: 6.5rem;
+    min-height: 6.5rem;
+  }
+
+  .kinetic-play-gate .kinetic-play-gate-icon {
+    width: 3.25rem !important;
+    height: 3.25rem !important;
+    min-width: 3.25rem;
+    min-height: 3.25rem;
+  }
 }
