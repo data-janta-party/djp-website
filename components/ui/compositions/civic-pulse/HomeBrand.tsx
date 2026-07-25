@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect } from 'react';
 
 import { useLocale } from '@/hooks/useLocale';
 import { useStorySnapWheel } from '@/hooks/useStorySnapWheel';
@@ -15,20 +14,13 @@ export interface HomeBrandProps extends React.HTMLAttributes<HTMLDivElement> {
  * Homepage: two full-viewport brand panels + digital speech CTA.
  * Copy sits in .story-snap-inset so it clears the sticky navbar.
  * Content band is .story-snap-panel-content; panel end-slack lives below it.
+ * Scroll snap lifecycle (`html.story-snap`) is owned by `useStorySnapWheel`.
  */
 export function HomeBrand({ className }: HomeBrandProps) {
   const { messages } = useLocale();
   const copy = messages.home;
 
   useStorySnapWheel(true);
-
-  useEffect(() => {
-    const root = document.documentElement;
-    root.classList.add('story-snap');
-    return () => {
-      root.classList.remove('story-snap');
-    };
-  }, []);
 
   return (
     <section

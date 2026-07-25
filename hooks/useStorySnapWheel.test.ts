@@ -2,6 +2,7 @@ import { renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  accumulateWheelDelta,
   panelFreeScrollRange,
   resolveSpringTarget,
   resolveTallPanelSpring,
@@ -10,6 +11,23 @@ import {
   TALL_PANEL_MIN_RANGE,
   useStorySnapWheel,
 } from './useStorySnapWheel';
+
+describe('accumulateWheelDelta', () => {
+  it('accumulates until threshold then commits direction and resets', () => {
+    expect(accumulateWheelDelta(0, 20, 36)).toEqual({
+      accumulated: 20,
+      commitDirection: null,
+    });
+    expect(accumulateWheelDelta(20, 20, 36)).toEqual({
+      accumulated: 0,
+      commitDirection: 1,
+    });
+    expect(accumulateWheelDelta(0, -40, 36)).toEqual({
+      accumulated: 0,
+      commitDirection: -1,
+    });
+  });
+});
 
 describe('resolveSpringTarget', () => {
   const base = {
@@ -235,6 +253,18 @@ describe('useStorySnapWheel', () => {
     document.documentElement.style.scrollSnapType = '';
     document.body.innerHTML = '';
     vi.restoreAllMocks();
+  });
+
+
+  it('owns documentElement story-snap class while active', () => {
+    document.body.innerHTML = `
+      <div class="story-snap-panel" id="p0" style="height: 100px"></div>
+    `;
+    expect(document.documentElement.classList.contains('story-snap')).toBe(false);
+    const { unmount } = renderHook(() => useStorySnapWheel(true));
+    expect(document.documentElement.classList.contains('story-snap')).toBe(true);
+    unmount();
+    expect(document.documentElement.classList.contains('story-snap')).toBe(false);
   });
 
   it('advances one panel per wheel gesture when story-snap is active', () => {

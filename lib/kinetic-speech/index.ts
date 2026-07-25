@@ -1,6 +1,7 @@
 /**
- * Kinetic speech film data — re-exports `@/lib/kinetic-speech`.
- * Prefer the package path for new code; this barrel keeps existing imports working.
+ * Kinetic speech film — data, layout, and pure helpers.
+ * Prefer importing from `@/lib/kinetic-speech` or the legacy barrel
+ * `@/lib/data/kinetic-speech` (re-exports this package).
  */
 
 export type {
@@ -14,7 +15,7 @@ export type {
   KineticAct,
   LaidOutBeat,
   BeatRole,
-} from '@/lib/kinetic-speech';
+} from '@/lib/kinetic-speech/types';
 
 export {
   kineticSpeechAudioSrc,
@@ -37,13 +38,20 @@ export {
   kineticSpeechRollerSettleBeats,
   kineticSpeechVirtues,
   kineticSpeechRollerVirtues,
-  stickyPrefixHoldBeats,
-  beatDurationBeats,
-  layoutKineticSpeech,
-  getAllKineticBeats,
-  getKineticSpeechTranscript,
+} from '@/lib/kinetic-speech/constants';
+
+export { stickyPrefixHoldBeats } from '@/lib/kinetic-speech/sticky';
+export { beatDurationBeats, layoutKineticSpeech } from '@/lib/kinetic-speech/layout';
+export { getAllKineticBeats } from '@/lib/kinetic-speech/acts';
+export { getKineticSpeechTranscript } from '@/lib/kinetic-speech/transcript';
+export {
   getKineticSpeechStoryDurationSec,
   getKineticSpeechVisualEndSec,
   getKineticSpeechFilmDurationSec,
   getKineticSpeechAudioEndBeat,
-} from '@/lib/kinetic-speech';
+} from '@/lib/kinetic-speech/film-duration';
+
+export {
+  buildKineticSpeechTimeline,
+  type BuildKineticSpeechTimelineOptions,
+} from '@/lib/kinetic-speech/build-timeline';

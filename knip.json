@@ -23,7 +23,9 @@
     "interface": true,
     "type": true
   },
-  "tags": ["-public"],
+  "tags": [
+    "-public"
+  ],
   "ignoreDependencies": [
     "tailwindcss",
     "tw-animate-css",
@@ -34,14 +36,35 @@
     "lib/shims/**"
   ],
   "ignoreIssues": {
-    "lib/schemas/api/common.ts": ["exports", "types"],
-    "components/ui/shadcn/badge.tsx": ["exports"],
-    "components/ui/shadcn/button.tsx": ["exports"],
-    "components/ui/shadcn/select.tsx": ["exports"],
-    "components/ui/shadcn/input.tsx": ["exports"],
-    "components/ui/shadcn/label.tsx": ["exports"],
-    "components/ui/shadcn/textarea.tsx": ["exports"],
-    "components/ui/atoms/Select.tsx": ["exports"]
+    "lib/schemas/api/common.ts": [
+      "exports",
+      "types"
+    ],
+    "components/ui/shadcn/badge.tsx": [
+      "exports"
+    ],
+    "components/ui/shadcn/button.tsx": [
+      "exports"
+    ],
+    "components/ui/shadcn/select.tsx": [
+      "exports"
+    ],
+    "components/ui/shadcn/input.tsx": [
+      "exports"
+    ],
+    "components/ui/shadcn/label.tsx": [
+      "exports"
+    ],
+    "components/ui/shadcn/textarea.tsx": [
+      "exports"
+    ],
+    "components/ui/atoms/Select.tsx": [
+      "exports"
+    ],
+    "lib/data/kinetic-speech.ts": [
+      "exports",
+      "types"
+    ]
   },
   "vitest": {
     "config": [
@@ -51,6 +74,8 @@
     ]
   },
   "playwright": {
-    "config": ["config/playwright.config.ts"]
+    "config": [
+      "config/playwright.config.ts"
+    ]
   }
 }

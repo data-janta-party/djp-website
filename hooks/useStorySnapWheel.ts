@@ -1,5 +1,18 @@
 'use client';
 
+/**
+ * Home story-snap scroll — spring gear owns wheel/touch panel advances.
+ *
+ * Lifecycle: while `active`, owns `html.story-snap` + clears CSS scroll-snap so
+ * it cannot fight rebound. Pure helpers: `resolveSpringTarget`,
+ * `resolveTallPanelSpring`, `panelFreeScrollRange`, `accumulateWheelDelta`
+ * (unit-tested).
+ *
+ * Known residual: the main effect is still a large gesture→commit state machine
+ * (wheel + touch + free-scroll past last). Further decomposition (gesture event
+ * → intent → commit) is a follow-up; do not treat this file as fully de-spaghettified.
+ */
+
 import { useEffect, type RefObject } from 'react';
 
 const PANEL_SELECTOR = '.story-snap-panel, .story-snap-volunteer';
@@ -113,6 +126,22 @@ function normalizeDeltaY(event: WheelEvent): number {
     dy *= window.innerHeight;
   }
   return dy;
+}
+
+/**
+ * Accumulate wheel deltas until `|sum| >= threshold`, then commit a panel step.
+ * Pure helper so gesture→commit threshold is unit-testable outside the effect.
+ */
+export function accumulateWheelDelta(
+  accumulated: number,
+  deltaY: number,
+  threshold: number = WHEEL_THRESHOLD,
+): { accumulated: number; commitDirection: -1 | 1 | null } {
+  const next = accumulated + deltaY;
+  if (Math.abs(next) < threshold) {
+    return { accumulated: next, commitDirection: null };
+  }
+  return { accumulated: 0, commitDirection: next > 0 ? 1 : -1 };
 }
 
 /**
@@ -371,17 +400,14 @@ export function useStorySnapWheel(
       typeof window.matchMedia === 'function' &&
       window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    const enableCssSnap = () => {
-      // Spring gear is owned by this hook; keep CSS snap off so it cannot fight rebound.
-      root.style.scrollSnapType = 'none';
-    };
-
-    const disableCssSnap = () => {
+    /** CSS mandatory snap fights spring rebound — always clear while this hook owns scroll. */
+    const clearCssSnap = () => {
       root.style.scrollSnapType = 'none';
     };
 
     // Always own snap while active — CSS mandatory snap is too eager on touch.
-    disableCssSnap();
+    clearCssSnap();
+    root.classList.add('story-snap');
 
     const lastPanelTop = (panels: HTMLElement[]) => {
       const last = panels[panels.length - 1];
@@ -400,7 +426,7 @@ export function useStorySnapWheel(
 
       if (top < PAST_LAST_TOP) {
         freeScroll = true;
-        disableCssSnap();
+        clearCssSnap();
         anchoredIndex = panels.length - 1;
         return;
       }
@@ -421,7 +447,7 @@ export function useStorySnapWheel(
     const animateScrollTo = (top: number, onDone: () => void) => {
       animatingPanel = true;
       freeScroll = false;
-      disableCssSnap();
+      clearCssSnap();
       if (restoreTimer) {
         clearTimeout(restoreTimer);
       }
@@ -487,11 +513,8 @@ export function useStorySnapWheel(
 
       animateScrollTo(panelScrollTop(panel), () => {
         anchoredIndex = targetIndex;
-        if (!freeScroll && lastPanelTop(getPanels()) > PAST_LAST_TOP) {
-          enableCssSnap();
-        } else {
-          disableCssSnap();
-        }
+        // Formerly enable/disable CSS snap; both paths clear — spring gear owns scroll.
+        clearCssSnap();
       });
     };
 
@@ -507,7 +530,7 @@ export function useStorySnapWheel(
       lockUntil = now + LOCK_MS;
       accumulated = 0;
       animateScrollTo(y, () => {
-        disableCssSnap();
+        clearCssSnap();
       });
     };
 
@@ -558,7 +581,7 @@ export function useStorySnapWheel(
       // Already free-scrolling in footer — leave scroll alone.
       if (freeScroll || pastLast) {
         freeScroll = true;
-        disableCssSnap();
+        clearCssSnap();
         anchoredIndex = panels.length - 1;
         return;
       }
@@ -587,7 +610,7 @@ export function useStorySnapWheel(
         if (from >= panels.length - 1 && result.kind === 'leave') {
           if (window.scrollY > range.maxY + 1) {
             freeScroll = true;
-            disableCssSnap();
+            clearCssSnap();
           }
           anchoredIndex = from;
           return;
@@ -618,7 +641,7 @@ export function useStorySnapWheel(
         (deltaFromPanelTop > vh * 0.08 || velocityPxPerMs >= SPRING_VELOCITY_THRESHOLD)
       ) {
         freeScroll = true;
-        disableCssSnap();
+        clearCssSnap();
         anchoredIndex = panels.length - 1;
         return;
       }
@@ -723,7 +746,7 @@ export function useStorySnapWheel(
         } else if (top < PAST_LAST_TOP) {
           // Stay free; still track so a strong upward flick can re-enter.
           gestureFromIndex = panels.length - 1;
-          disableCssSnap();
+          clearCssSnap();
           return;
         }
       }
@@ -733,7 +756,7 @@ export function useStorySnapWheel(
         ? panels.length - 1
         : activePanelIndex(panels, window.scrollY, window.innerHeight, anchoredIndex);
 
-      disableCssSnap();
+      clearCssSnap();
     };
 
     const onTouchMove = (event: TouchEvent) => {
@@ -806,7 +829,7 @@ export function useStorySnapWheel(
 
       if (freeScroll || pastLast) {
         freeScroll = true;
-        disableCssSnap();
+        clearCssSnap();
 
         if (dy < 0 && top >= PAST_LAST_TOP && top < REARM_SNAP_TOP) {
           freeScroll = false;
@@ -849,7 +872,7 @@ export function useStorySnapWheel(
           // At free-range edge on last panel scrolling down → free footer.
           if (atEnd && dy > 0 && atBottom) {
             freeScroll = true;
-            disableCssSnap();
+            clearCssSnap();
             accumulated = 0;
             return;
           }
@@ -860,12 +883,12 @@ export function useStorySnapWheel(
             if (performance.now() < lockUntil) {
               return;
             }
-            accumulated += dy;
-            if (Math.abs(accumulated) < WHEEL_THRESHOLD) {
+            const step = accumulateWheelDelta(accumulated, dy);
+            accumulated = step.accumulated;
+            if (!step.commitDirection) {
               return;
             }
-            const direction: -1 | 1 = accumulated > 0 ? 1 : -1;
-            go(direction);
+            go(step.commitDirection);
             return;
           }
         }
@@ -873,7 +896,7 @@ export function useStorySnapWheel(
 
       if (atEnd && dy > 0) {
         freeScroll = true;
-        disableCssSnap();
+        clearCssSnap();
         accumulated = 0;
         return;
       }
@@ -890,13 +913,12 @@ export function useStorySnapWheel(
         return;
       }
 
-      accumulated += dy;
-      if (Math.abs(accumulated) < WHEEL_THRESHOLD) {
+      const step = accumulateWheelDelta(accumulated, dy);
+      accumulated = step.accumulated;
+      if (!step.commitDirection) {
         return;
       }
-
-      const direction: -1 | 1 = accumulated > 0 ? 1 : -1;
-      go(direction);
+      go(step.commitDirection);
     };
 
     window.addEventListener('wheel', onWheel, { passive: false });
@@ -924,6 +946,7 @@ export function useStorySnapWheel(
         clearTimeout(restoreTimer);
       }
       root.style.scrollSnapType = '';
+      root.classList.remove('story-snap');
     };
   }, [active, holdPanelRef]);
 }
