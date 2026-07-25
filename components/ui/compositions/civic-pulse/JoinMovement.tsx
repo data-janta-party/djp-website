@@ -29,7 +29,7 @@ export function JoinMovement({ className }: JoinMovementProps) {
       )}
     >
       <div
-        className="story-snap-panel-content flex flex-col justify-center px-margin-mobile py-16 md:px-gutter md:py-24"
+        className="story-snap-panel-content flex flex-col justify-start px-margin-mobile py-16 md:justify-center md:px-gutter md:py-24"
         id="tpl-components-ui-compositions-civic-pulse-join-movement-panel-content"
       >
         <div className="mx-auto flex w-full max-w-(--spacing-container-max) flex-col items-start gap-12 md:gap-16" id="tpl-components-ui-compositions-civic-pulse-join-movement-l31-c7">

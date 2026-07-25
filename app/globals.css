@@ -137,8 +137,8 @@ body {
 html.story-snap {
   /* Sticky civic navbar is h-16 (4rem) */
   --story-nav-offset: 4rem;
-  /* Mobile-first: more runway between panels for partial drag */
-  --story-snap-end-slack: 28svh;
+  /* Mobile-first: runway under tall content (e.g. Join cards) before next panel */
+  --story-snap-end-slack: 36svh;
   /* Fallback only — hook disables this for spring control */
   scroll-snap-type: y mandatory;
   scroll-behavior: auto;

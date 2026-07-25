@@ -22,6 +22,13 @@ const REARM_SNAP_TOP = 64;
 export const SPRING_DISTANCE_RATIO = 0.25;
 /** Positive velocity = intend next panel (finger moving up), px/ms. */
 export const SPRING_VELOCITY_THRESHOLD = 0.45;
+/**
+ * Min free-scroll travel (px) for a panel to count as tall.
+ * Tall panels (e.g. Join with 3 cards) free-scroll inside; short ones keep gear snap.
+ */
+export const TALL_PANEL_MIN_RANGE = 16;
+/** Edge band near free-range ends where a strong flick can still commit. */
+const TALL_EDGE_RATIO = 0.08;
 /** Max wait for momentum scroll to settle after touchend. */
 const SETTLE_MAX_MS = 420;
 /** Consecutive near-still frames before treating scroll as settled. */
@@ -46,6 +53,45 @@ function nearestPanelIndex(panels: HTMLElement[]): number {
     }
   }
   return best;
+}
+
+/**
+ * Prefer the panel whose free-scroll range contains scrollY (tall Join mid-read).
+ * Falls back to nearest panel top when between panels / overshooting.
+ */
+function activePanelIndex(
+  panels: HTMLElement[],
+  scrollY: number,
+  viewportHeight: number,
+  preferredIndex?: number,
+): number {
+  if (panels.length === 0) {
+    return 0;
+  }
+
+  // Prefer anchored / preferred panel when still inside its free range.
+  if (preferredIndex !== undefined) {
+    const preferred = panels[preferredIndex];
+    if (preferred) {
+      const range = panelFreeScrollRange(preferred, viewportHeight, scrollY);
+      if (scrollY >= range.minY - 2 && scrollY <= range.maxY + 2) {
+        return preferredIndex;
+      }
+    }
+  }
+
+  for (let i = 0; i < panels.length; i += 1) {
+    const panel = panels[i];
+    if (!panel) {
+      continue;
+    }
+    const range = panelFreeScrollRange(panel, viewportHeight, scrollY);
+    if (scrollY >= range.minY - 2 && scrollY <= range.maxY + 2) {
+      return i;
+    }
+  }
+
+  return nearestPanelIndex(panels);
 }
 
 function isEditableTarget(target: EventTarget | null): boolean {
@@ -77,6 +123,36 @@ function panelScrollTop(panel: HTMLElement): number {
   return panel.getBoundingClientRect().top + window.scrollY;
 }
 
+export type PanelFreeScrollRange = {
+  /** scrollY when panel top is flush with viewport top. */
+  readonly minY: number;
+  /** scrollY when panel bottom is flush with viewport bottom ( ≥ minY ). */
+  readonly maxY: number;
+  /** True when the panel is taller than the viewport enough to free-scroll inside. */
+  readonly isTall: boolean;
+};
+
+/**
+ * Free-scroll range for a panel: [minY, maxY].
+ * End-slack padding is part of panel height, so maxY includes runway below content.
+ */
+export function panelFreeScrollRange(
+  panel: HTMLElement,
+  viewportHeight: number,
+  scrollY = 0,
+): PanelFreeScrollRange {
+  const vh = Math.max(1, viewportHeight);
+  const rect = panel.getBoundingClientRect();
+  const minY = rect.top + scrollY;
+  const panelHeight = panel.offsetHeight > 0 ? panel.offsetHeight : rect.height;
+  const maxY = Math.max(minY, minY + panelHeight - vh);
+  return {
+    minY,
+    maxY,
+    isTall: maxY - minY > TALL_PANEL_MIN_RANGE,
+  };
+}
+
 export type ResolveSpringTargetArgs = {
   readonly fromIndex: number;
   readonly panelCount: number;
@@ -95,8 +171,8 @@ export type ResolveSpringTargetArgs = {
 };
 
 /**
- * Gear-hole spring: commit to an adjacent panel only if distance or velocity
- * clears the threshold; otherwise return `fromIndex` (spring back).
+ * Gear-hole spring for short panels: commit to an adjacent panel only if distance
+ * or velocity clears the threshold; otherwise return `fromIndex` (spring back).
  */
 export function resolveSpringTarget({
   fromIndex,
@@ -146,6 +222,105 @@ export function resolveSpringTarget({
 }
 
 /**
+ * Tall-panel spring result:
+ * - leave: free-scroll mid-panel (do not reseat)
+ * - goto: jump to another panel index
+ * - reseat: smooth scroll to a Y within the free range (edge rebound)
+ */
+export type TallPanelSpringResult =
+  | { readonly kind: 'leave' }
+  | { readonly kind: 'goto'; readonly index: number }
+  | { readonly kind: 'reseat'; readonly y: number };
+
+export type ResolveTallPanelSpringArgs = {
+  readonly fromIndex: number;
+  readonly panelCount: number;
+  readonly scrollY: number;
+  readonly minY: number;
+  readonly maxY: number;
+  readonly viewportHeight: number;
+  readonly velocityPxPerMs: number;
+  readonly distanceRatio?: number;
+  readonly velocityThreshold?: number;
+  readonly allowFreeScrollPastLast?: boolean;
+};
+
+/**
+ * Free-scroll inside tall panels; commit next/prev only past free-range edges.
+ * Never reseats mid-panel reading back to the panel top.
+ */
+export function resolveTallPanelSpring({
+  fromIndex,
+  panelCount,
+  scrollY,
+  minY,
+  maxY,
+  viewportHeight,
+  velocityPxPerMs,
+  distanceRatio = SPRING_DISTANCE_RATIO,
+  velocityThreshold = SPRING_VELOCITY_THRESHOLD,
+  allowFreeScrollPastLast = true,
+}: ResolveTallPanelSpringArgs): TallPanelSpringResult {
+  if (panelCount <= 0) {
+    return { kind: 'leave' };
+  }
+  const from = Math.max(0, Math.min(fromIndex, panelCount - 1));
+  const vh = Math.max(1, viewportHeight);
+  const overshootDown = scrollY - maxY;
+  const overshootUp = minY - scrollY;
+  const distanceCommitDown = overshootDown >= vh * distanceRatio;
+  const distanceCommitUp = overshootUp >= vh * distanceRatio;
+  const velocityCommit = Math.abs(velocityPxPerMs) >= velocityThreshold;
+  const edgeBand = vh * TALL_EDGE_RATIO;
+
+  // Past last panel free range → footer free scroll (leave alone).
+  if (allowFreeScrollPastLast && from >= panelCount - 1 && overshootDown > vh * 0.08) {
+    return { kind: 'leave' };
+  }
+
+  // Still inside free range (including small float noise).
+  if (overshootDown <= 1 && overshootUp <= 1) {
+    const nearBottom = scrollY >= maxY - edgeBand;
+    const nearTop = scrollY <= minY + edgeBand;
+
+    // Strong flick near free-range edges can still advance / go back.
+    if (velocityCommit && velocityPxPerMs > 0 && nearBottom && from < panelCount - 1) {
+      return { kind: 'goto', index: from + 1 };
+    }
+    if (velocityCommit && velocityPxPerMs < 0 && nearTop && from > 0) {
+      return { kind: 'goto', index: from - 1 };
+    }
+
+    return { kind: 'leave' };
+  }
+
+  // Past bottom of free range — commit next or rebound to maxY.
+  if (overshootDown > 1) {
+    if (distanceCommitDown || (velocityCommit && velocityPxPerMs > 0)) {
+      if (from < panelCount - 1) {
+        return { kind: 'goto', index: from + 1 };
+      }
+      // Last panel: enter free footer, do not yank.
+      return { kind: 'leave' };
+    }
+    return { kind: 'reseat', y: maxY };
+  }
+
+  // Past top of free range — commit prev or rebound to minY.
+  if (overshootUp > 1) {
+    if (distanceCommitUp || (velocityCommit && velocityPxPerMs < 0)) {
+      if (from > 0) {
+        return { kind: 'goto', index: from - 1 };
+      }
+      return { kind: 'reseat', y: minY };
+    }
+    return { kind: 'reseat', y: minY };
+  }
+
+  return { kind: 'leave' };
+}
+
+/**
  * Return true to consume the gesture without changing panels
  * (e.g. same-slide list → merge on the India visions panel).
  */
@@ -156,10 +331,10 @@ export type StorySnapHoldHandler = (args: {
 
 /**
  * Full-page story snap with gear / spring commit:
- * - Wheel: accumulate past threshold → one panel jump (existing).
- * - Touch: free drag while finger is down; on settle, commit to next/prev only if
- *   distance or velocity clears the threshold, otherwise spring back.
- * After the last panel (volunteer), scroll stays free into the footer.
+ * - Short panels: wheel threshold / touch distance → one panel jump.
+ * - Tall panels (content + end-slack taller than viewport): free-scroll inside;
+ *   only commit next/prev past free-range edges (so Join cards stay readable).
+ * - After the last panel (volunteer), scroll stays free into the footer.
  *
  * Optional `holdPanelRef`: when the current panel should “hold” (in-slide
  * animation), return true to block panel advance for that direction.
@@ -243,6 +418,27 @@ export function useStorySnapWheel(
       return holdPanelRef.current({ direction, currentPanel });
     };
 
+    const animateScrollTo = (top: number, onDone: () => void) => {
+      animatingPanel = true;
+      freeScroll = false;
+      disableCssSnap();
+      if (restoreTimer) {
+        clearTimeout(restoreTimer);
+      }
+      window.scrollTo({
+        top,
+        left: 0,
+        behavior: prefersReducedMotion() ? 'auto' : 'smooth',
+      });
+      const finish = () => {
+        animatingPanel = false;
+        onDone();
+        window.removeEventListener('scrollend', finish);
+      };
+      window.addEventListener('scrollend', finish);
+      restoreTimer = setTimeout(finish, SNAP_RESTORE_MS);
+    };
+
     const goToIndex = (index: number) => {
       const now = performance.now();
       if (now < lockUntil) {
@@ -263,7 +459,12 @@ export function useStorySnapWheel(
         return;
       }
 
-      const current = nearestPanelIndex(panels);
+      const current = activePanelIndex(
+        panels,
+        window.scrollY,
+        window.innerHeight,
+        anchoredIndex,
+      );
       const currentPanel = panels[current];
       const direction: -1 | 1 = targetIndex >= current ? 1 : -1;
 
@@ -273,57 +474,41 @@ export function useStorySnapWheel(
         // Spring back to hold panel rather than advancing.
         const holdPanel = currentPanel;
         if (holdPanel) {
-          animatingPanel = true;
-          freeScroll = false;
-          disableCssSnap();
-          window.scrollTo({
-            top: panelScrollTop(holdPanel),
-            left: 0,
-            behavior: prefersReducedMotion() ? 'auto' : 'smooth',
-          });
-          const finishHold = () => {
-            animatingPanel = false;
+          animateScrollTo(panelScrollTop(holdPanel), () => {
             anchoredIndex = current;
-            window.removeEventListener('scrollend', finishHold);
-          };
-          window.addEventListener('scrollend', finishHold);
-          if (restoreTimer) {
-            clearTimeout(restoreTimer);
-          }
-          restoreTimer = setTimeout(finishHold, SNAP_RESTORE_MS);
+          });
         }
         return;
       }
 
-      freeScroll = false;
       lockUntil = now + LOCK_MS;
       accumulated = 0;
-      animatingPanel = true;
       anchoredIndex = targetIndex;
 
-      if (restoreTimer) {
-        clearTimeout(restoreTimer);
-      }
-
-      disableCssSnap();
-      window.scrollTo({
-        top: panelScrollTop(panel),
-        left: 0,
-        behavior: prefersReducedMotion() ? 'auto' : 'smooth',
-      });
-
-      const finish = () => {
-        animatingPanel = false;
+      animateScrollTo(panelScrollTop(panel), () => {
         anchoredIndex = targetIndex;
         if (!freeScroll && lastPanelTop(getPanels()) > PAST_LAST_TOP) {
           enableCssSnap();
         } else {
           disableCssSnap();
         }
-        window.removeEventListener('scrollend', finish);
-      };
-      window.addEventListener('scrollend', finish);
-      restoreTimer = setTimeout(finish, SNAP_RESTORE_MS);
+      });
+    };
+
+    /** Soft reseat within a tall panel free range (not a panel index jump). */
+    const goToScrollY = (y: number) => {
+      const now = performance.now();
+      if (now < lockUntil) {
+        return;
+      }
+      if (!root.classList.contains('story-snap')) {
+        return;
+      }
+      lockUntil = now + LOCK_MS;
+      accumulated = 0;
+      animateScrollTo(y, () => {
+        disableCssSnap();
+      });
     };
 
     const go = (direction: -1 | 1) => {
@@ -331,7 +516,12 @@ export function useStorySnapWheel(
       if (panels.length === 0) {
         return;
       }
-      const current = nearestPanelIndex(panels);
+      const current = activePanelIndex(
+        panels,
+        window.scrollY,
+        window.innerHeight,
+        anchoredIndex,
+      );
       const next = current + direction;
       if (next < 0 || next >= panels.length) {
         return;
@@ -379,7 +569,49 @@ export function useStorySnapWheel(
       // Finger up → content advances → positive velocity toward next.
       const velocityPxPerMs = (touchStartY - touchLastY) / dt;
       const vh = window.innerHeight;
+      const range = panelFreeScrollRange(fromPanel, vh, window.scrollY);
 
+      // Tall panel: free-scroll mid-content; only edge spring commits.
+      if (range.isTall) {
+        const result = resolveTallPanelSpring({
+          fromIndex: from,
+          panelCount: panels.length,
+          scrollY: window.scrollY,
+          minY: range.minY,
+          maxY: range.maxY,
+          viewportHeight: vh,
+          velocityPxPerMs,
+        });
+
+        // Last panel leaving free range → free footer (do not reseat).
+        if (from >= panels.length - 1 && result.kind === 'leave') {
+          if (window.scrollY > range.maxY + 1) {
+            freeScroll = true;
+            disableCssSnap();
+          }
+          anchoredIndex = from;
+          return;
+        }
+
+        if (result.kind === 'leave') {
+          anchoredIndex = from;
+          return;
+        }
+        if (result.kind === 'reseat') {
+          goToScrollY(result.y);
+          return;
+        }
+
+        const direction: -1 | 1 = result.index > from ? 1 : -1;
+        if (tryHold(direction, fromPanel)) {
+          goToScrollY(range.minY);
+          return;
+        }
+        goToIndex(result.index);
+        return;
+      }
+
+      // Short panel: existing gear-hole spring from panel top.
       // On last panel, enough downward drag/flick enters free footer scroll (no spring yank).
       if (
         from >= panels.length - 1 &&
@@ -496,14 +728,10 @@ export function useStorySnapWheel(
         }
       }
 
-      gestureFromIndex = freeScroll ? panels.length - 1 : nearestPanelIndex(panels);
-      // Prefer last settled gear hole when still near it (avoids mid-drag index flips).
-      if (!freeScroll && Math.abs(nearestPanelIndex(panels) - anchoredIndex) <= 1) {
-        const anchored = panels[anchoredIndex];
-        if (anchored && Math.abs(anchored.getBoundingClientRect().top) < window.innerHeight * 0.45) {
-          gestureFromIndex = anchoredIndex;
-        }
-      }
+      // Prefer free-range containment so mid tall-panel reading stays on Join.
+      gestureFromIndex = freeScroll
+        ? panels.length - 1
+        : activePanelIndex(panels, window.scrollY, window.innerHeight, anchoredIndex);
 
       disableCssSnap();
     };
@@ -557,7 +785,8 @@ export function useStorySnapWheel(
         return;
       }
 
-      const current = nearestPanelIndex(panels);
+      const vh = window.innerHeight;
+      const current = activePanelIndex(panels, window.scrollY, vh, anchoredIndex);
       const currentPanel = panels[current];
       const atStart = current <= 0;
       const atEnd = current >= panels.length - 1;
@@ -597,6 +826,51 @@ export function useStorySnapWheel(
         return;
       }
 
+      // Tall intermediate / last panels: allow native wheel inside free range.
+      if (currentPanel) {
+        const range = panelFreeScrollRange(currentPanel, vh, window.scrollY);
+        if (range.isTall) {
+          const y = window.scrollY;
+          const atTop = y <= range.minY + 2;
+          const atBottom = y >= range.maxY - 2;
+
+          if (dy > 0 && !atBottom) {
+            // Scroll content (and end-slack) before committing next panel.
+            accumulated = 0;
+            anchoredIndex = current;
+            return;
+          }
+          if (dy < 0 && !atTop) {
+            accumulated = 0;
+            anchoredIndex = current;
+            return;
+          }
+
+          // At free-range edge on last panel scrolling down → free footer.
+          if (atEnd && dy > 0 && atBottom) {
+            freeScroll = true;
+            disableCssSnap();
+            accumulated = 0;
+            return;
+          }
+
+          // At edge: gear-snap to adjacent panel.
+          if ((dy > 0 && atBottom && !atEnd) || (dy < 0 && atTop && !atStart)) {
+            event.preventDefault();
+            if (performance.now() < lockUntil) {
+              return;
+            }
+            accumulated += dy;
+            if (Math.abs(accumulated) < WHEEL_THRESHOLD) {
+              return;
+            }
+            const direction: -1 | 1 = accumulated > 0 ? 1 : -1;
+            go(direction);
+            return;
+          }
+        }
+      }
+
       if (atEnd && dy > 0) {
         freeScroll = true;
         disableCssSnap();
@@ -632,7 +906,11 @@ export function useStorySnapWheel(
     window.addEventListener('touchcancel', onTouchEnd, { passive: true });
     window.addEventListener('scroll', syncFreeScrollFromPosition, { passive: true });
     syncFreeScrollFromPosition();
-    anchoredIndex = nearestPanelIndex(getPanels());
+    anchoredIndex = activePanelIndex(
+      getPanels(),
+      window.scrollY,
+      window.innerHeight,
+    );
 
     return () => {
       window.removeEventListener('wheel', onWheel);
