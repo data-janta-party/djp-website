@@ -84,6 +84,26 @@ const kineticSpeechActs: readonly KineticAct[] = [
         holdHit: holdFor('Chalta Hai.', 'slam-word'),
         heartbeat: true,
       },
+      // Quality of work: built with pride → fails in the rains → shrug
+      {
+        kind: 'sticky-pair',
+        id: 'a1-expressway',
+        mode: 'swap-hit',
+        fixed: 'Expressway built.',
+        fixedRole: 'body',
+        stepRole: 'body',
+        // Whole-beat step — half-beats cascade into expensive kick-snap pads later
+        steps: [{ text: 'Broken by the rains.', hold: b(2) }],
+      },
+      {
+        kind: 'line',
+        id: 'a1-expressway-ch',
+        text: 'Chalta Hai.',
+        role: 'slam',
+        motion: 'pop',
+        hold: holdFor('Chalta Hai.', 'slam-word'),
+        heartbeat: true,
+      },
       {
         // Government office. + 1→5 visits on successive beats, then Chalta Hai.
         kind: 'sticky-pair',
@@ -323,7 +343,7 @@ const kineticSpeechActs: readonly KineticAct[] = [
         id: 'a3-lr',
         left: 'Left.',
         right: 'Right.',
-        hold: b(6),
+        hold: b(4),
         axis: 'x',
         tussle: true,
       },
@@ -332,7 +352,7 @@ const kineticSpeechActs: readonly KineticAct[] = [
         id: 'a3-ns',
         left: 'North.',
         right: 'South.',
-        hold: b(6),
+        hold: b(4),
         axis: 'y',
         tussle: true,
       },
@@ -365,7 +385,7 @@ const kineticSpeechActs: readonly KineticAct[] = [
         role: 'close',
         motion: 'hardcut',
         // Thesis floor is 5; +2 beats (~0.9s) for thesis weight before We want
-        hold: b(7),
+        hold: b(5),
         heartbeat: true,
         wide: true,
       },
@@ -383,7 +403,7 @@ const kineticSpeechActs: readonly KineticAct[] = [
       {
         kind: 'rapid',
         id: 'a4b-want-list',
-        words: ['development', 'no corruption', 'accountability'],
+        words: ['development', 'quality', 'no corruption', 'accountability'],
         holdEach: 2,
         role: 'body',
       },
@@ -463,6 +483,19 @@ const kineticSpeechActs: readonly KineticAct[] = [
           { text: 'Updated monthly.', hold: b(2) },
           { text: 'Project finished.', hold: b(2) },
         ],
+      },
+      // Quality reverse of Act 1 expressway shrug — built once, stays standing
+      {
+        kind: 'pair',
+        id: 'a5-infra',
+        lead: 'Infrastructure built.',
+        hit: 'Built to last.',
+        leadRole: 'body',
+        hitRole: 'close',
+        holdLead: b(2),
+        holdHit: b(2),
+        wide: true,
+        heartbeat: true,
       },
       {
         kind: 'sticky',

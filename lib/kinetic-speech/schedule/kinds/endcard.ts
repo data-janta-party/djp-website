@@ -81,7 +81,12 @@ export const scheduleEndcard: ScheduleKindHandler = (ctx, item, _next, startT, _
   );
   });
 
-  // After last reel locks + one hold gap: show Join (interactive while music tails out)
+  // Unlock CTAs when the endcard appears (Sources/URL). Join stays autoAlpha 0
+  // until settle — GSAP visibility:hidden keeps it non-clickable until then.
+  // Transport also time-syncs unlock from the audio clock (seek suppresses call events).
+  tl.call(() => { ctx.onJoinReady?.(); }, undefined, startT);
+
+  // After last reel locks + one hold gap: reveal Join (already interactive)
   const settleBeat = phase1EndBeat + domainStrips.length * domainLockGap + 1;
   const settleT = atBeat(settleBeat);
   tl.to(
@@ -89,7 +94,6 @@ export const scheduleEndcard: ScheduleKindHandler = (ctx, item, _next, startT, _
   { autoAlpha: 1, y: 0, duration: 0.28, ease: 'power4.out' },
   settleT,
   );
-  tl.call(() => { ctx.onJoinReady?.(); }, undefined, settleT);
 
   // Heartbeat on roller from endcard start through kick map up to audio-end bound.
   // Uses analyzed kicks only (no residual pulse after last kick ~4s before 142s).

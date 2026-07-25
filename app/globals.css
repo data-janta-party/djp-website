@@ -553,6 +553,7 @@ html.kinetic-speech-active #civic-pulse-footer {
 /*
  * Portaled HoverCard content mounts on document.body (outside #kinetic-speech-film).
  * Redeclare film tokens here so charcoal / dim / focus-ring resolve on the popup tree.
+ * Stacking: HoverCard positioner uses z-[110] so it sits above the film shell (z-[100]).
  */
 .kinetic-endcard-sources-content {
   --kinetic-charcoal: #000000;

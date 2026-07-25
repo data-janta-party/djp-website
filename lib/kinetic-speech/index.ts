@@ -46,6 +46,7 @@ export { getAllKineticBeats } from '@/lib/kinetic-speech/acts';
 export { getKineticSpeechTranscript } from '@/lib/kinetic-speech/transcript';
 export {
   getKineticSpeechStoryDurationSec,
+  getKineticSpeechEndcardInteractiveSec,
   getKineticSpeechVisualEndSec,
   getKineticSpeechFilmDurationSec,
   getKineticSpeechAudioEndBeat,

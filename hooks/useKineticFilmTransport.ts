@@ -19,6 +19,7 @@ import {
 
 import {
   getAllKineticBeats,
+  getKineticSpeechEndcardInteractiveSec,
   getKineticSpeechTranscript,
   kineticSpeechCopy as copy,
   layoutKineticSpeech,
@@ -100,8 +101,13 @@ export function useKineticFilmTransport({
   const startScrubLoopRef = useRef<() => void>(() => undefined);
 
   const [phase, setPhase] = useState<FilmPhase>('poster');
-  /** Join/URL interactive after roller settles, while music may still be playing. */
+  /**
+   * Endcard CTAs interactive when the endcard appears (Sources/URL), while music
+   * may still play. Join stays GSAP-hidden until the roller settles.
+   * Driven from the audio clock — not GSAP call callbacks (seek suppresses them).
+   */
   const [joinReady, setJoinReady] = useState(false);
+  const joinReadyRef = useRef(false);
   /** Endcard Sources HoverCard open state (closed when endcard locks). */
   const [endcardSourcesOpen, setEndcardSourcesOpen] = useState(false);
   const [muted, setMuted] = useState(false);
@@ -224,6 +230,31 @@ export function useKineticFilmTransport({
     setPhase(next);
   }, []);
 
+  /** Keep joinReady state + ref in lockstep; close Sources when locking CTAs. */
+  const writeJoinReady = useCallback((ready: boolean) => {
+    joinReadyRef.current = ready;
+    setJoinReady(ready);
+    if (!ready) {
+      setEndcardSourcesOpen(false);
+    }
+  }, []);
+
+  /**
+   * Unlock endcard CTAs from the audio master clock (not GSAP callbacks).
+   * `timeline.seek(t)` suppresses events by default, so tl.call(onJoinReady) never
+   * runs during normal scrubbed playback.
+   */
+  const syncJoinReadyFromTime = useCallback(
+    (timeSec: number) => {
+      const unlockAt = getKineticSpeechEndcardInteractiveSec();
+      const ready = Number.isFinite(timeSec) && timeSec >= unlockAt - 0.001;
+      if (ready !== joinReadyRef.current) {
+        writeJoinReady(ready);
+      }
+    },
+    [writeJoinReady],
+  );
+
   /**
    * Single finish path for timeline complete / audio ended / reduced-motion start.
    */
@@ -263,7 +294,7 @@ export function useKineticFilmTransport({
         const qDone = gsap.utils.selector(stageEl);
         gsap.set(qDone('#kinetic-fin-join'), { autoAlpha: 1, y: 0 });
       }
-      setJoinReady(true);
+      writeJoinReady(true);
       setFilmPhase('ended');
       setStatus(copy.a11y.ended);
 
@@ -274,7 +305,7 @@ export function useKineticFilmTransport({
         }
       }
     },
-    [audioRef, setFilmPhase, setJoinReady, setMediaLoading, setStatus, stageRef, stopScrubLoop],
+    [audioRef, setFilmPhase, setMediaLoading, setStatus, stageRef, stopScrubLoop, writeJoinReady],
   );
 
   const buildTimeline = useCallback(() => {
@@ -286,11 +317,12 @@ export function useKineticFilmTransport({
       onTimelineComplete: () => {
         finishFilm();
       },
+      // Belt-and-suspenders if seek ever runs with suppressEvents:false (tests).
       onJoinReady: () => {
-        setJoinReady(true);
+        writeJoinReady(true);
       },
     });
-  }, [finishFilm, setJoinReady, stageRef]);
+  }, [finishFilm, stageRef, writeJoinReady]);
 
   const syncDevSlideHash = useCallback(
     (timeSec: number) => {
@@ -318,9 +350,15 @@ export function useKineticFilmTransport({
       audio: audioRef.current,
       timeline: timelineRef.current,
       phase: phaseRef.current,
-      onTime: isDevSlideNav ? syncDevSlideHash : undefined,
+      onTime: (timeSec) => {
+        // Unlock Sources/Join as soon as the endcard is on screen (audio clock).
+        syncJoinReadyFromTime(timeSec);
+        if (isDevSlideNav) {
+          syncDevSlideHash(timeSec);
+        }
+      },
     });
-  }, [audioRef, isDevSlideNav, syncDevSlideHash]);
+  }, [audioRef, isDevSlideNav, syncDevSlideHash, syncJoinReadyFromTime]);
 
   const startScrubLoop = useCallback(() => {
     const tick = () => {
@@ -370,8 +408,7 @@ export function useKineticFilmTransport({
 
     // Drop endcard interactivity immediately (before await audio.play)
     // so replay cannot leave hidden Join/URL/Sources focusable.
-    setJoinReady(false);
-    setEndcardSourcesOpen(false);
+    writeJoinReady(false);
     stopScrubLoop();
     setFilmPhase('playing');
     if (typeof document !== 'undefined') {
@@ -470,6 +507,7 @@ export function useKineticFilmTransport({
     slideCount,
     startScrubLoop,
     stopScrubLoop,
+    writeJoinReady,
   ]);
 
   const pauseFilm = useCallback(() => {
@@ -575,9 +613,6 @@ export function useKineticFilmTransport({
       const t = kineticSlideTimeSec(item);
       const stayPaused = phaseRef.current === 'paused';
 
-      setJoinReady(false);
-      setEndcardSourcesOpen(false);
-
       // Rebuild if missing (poster / cold seek / after kill).
       let tl = timelineRef.current;
       if (!tl) {
@@ -596,13 +631,15 @@ export function useKineticFilmTransport({
         suppressHashSeekRef.current = false;
       });
 
-      // GSAP: seek renders all tweens/calls up to t (timeline stays paused).
+      // GSAP: seek renders all tweens up to t (timeline stays paused; events suppressed).
       if (typeof tl.seek === 'function') {
         tl.seek(t);
       } else {
         tl.time(t);
       }
       tl.pause();
+      // Audio-clock unlock (seek does not fire onJoinReady callbacks).
+      syncJoinReadyFromTime(t);
 
       const audio = audioRef.current;
       if (audio) {
@@ -650,6 +687,7 @@ export function useKineticFilmTransport({
       slideItems,
       startScrubLoop,
       stopScrubLoop,
+      syncJoinReadyFromTime,
     ],
   );
 
@@ -778,7 +816,7 @@ export function useKineticFilmTransport({
     toggleMute,
   ]);
 
-  // Interactive after roller settles (joinReady) or full film end — music may still play.
+  // Interactive when endcard appears (joinReady from audio clock) or full film end.
   const endcardInteractive = phase === 'ended' || joinReady;
 
 

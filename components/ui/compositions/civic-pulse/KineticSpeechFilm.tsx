@@ -243,7 +243,7 @@ export function KineticSpeechFilm({
           ))}
         </div>
 
-        {/* Finale — roller URL + Join; inert until roller settles (joinReady) or film ended */}
+        {/* Finale — roller URL + Join + Sources; inert until endcard appears (or film ended) */}
         <div
           id="kinetic-endcard"
           data-k-node
@@ -272,7 +272,7 @@ export function KineticSpeechFilm({
             {copy.endcard.join} →
           </Link>
 
-          {/* Sources — bottom-right above control chrome; interactive only with endcard CTAs */}
+          {/* Sources — bottom-right above control chrome; clickable as soon as endcard appears */}
           <div
             id="kinetic-endcard-sources"
             className="absolute bottom-[calc(3.75rem+env(safe-area-inset-bottom,0px))] right-3 z-[2] sm:right-4 md:bottom-[calc(4.25rem+env(safe-area-inset-bottom,0px))] md:right-6"
@@ -288,10 +288,11 @@ export function KineticSpeechFilm({
               }}
             >
               <HoverCardTrigger
+                // id lives on the render <button> (DOM node); Base UI merges trigger props onto it
                 render={
                   <button
-                    type="button"
                     id="kinetic-endcard-sources-trigger"
+                    type="button"
                     onClick={() => {
                       if (endcardInteractive) {
                         setEndcardSourcesOpen((open) => !open);
@@ -411,10 +412,12 @@ export function KineticSpeechFilm({
       {showControls ? (
         <div
           id="kinetic-controls"
-          className="absolute bottom-0 left-0 right-0 z-40 flex items-center justify-end gap-2 bg-gradient-to-t from-black/85 to-transparent px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-4 sm:py-4 md:px-8"
+          // Gradient chrome is full-width; pass clicks through so endcard Sources
+          // (under this strip in z-order) stays clickable at the top edge.
+          className="pointer-events-none absolute bottom-0 left-0 right-0 z-40 flex items-center justify-end gap-2 bg-gradient-to-t from-black/85 to-transparent px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-4 sm:py-4 md:px-8"
         >
           <div
-            className="flex flex-wrap items-center justify-end gap-2"
+            className="pointer-events-auto flex flex-wrap items-center justify-end gap-2"
             id="tpl-components-ui-compositions-civic-pulse-kinetic-speech-film-l2148-c11"
           >
             {phase === 'playing' ? (

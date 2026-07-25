@@ -25,6 +25,18 @@ export function getKineticSpeechStoryDurationSec(): number {
 }
 
 /**
+ * Audio time (sec) when endcard CTAs unlock: Sources + URL as soon as the
+ * endcard appears; Join is still GSAP-hidden until the roller settles, then
+ * becomes clickable without a second React unlock.
+ *
+ * Transport must drive this from the audio clock — GSAP `seek()` defaults to
+ * suppressEvents, so `tl.call(onJoinReady)` never runs during scrubbed playback.
+ */
+export function getKineticSpeechEndcardInteractiveSec(): number {
+  return getKineticSpeechStoryDurationSec();
+}
+
+/**
  * Seconds when the visual story + endcard (roller settle + tail) is complete.
  * Audio may continue past this until `kineticSpeechAudioDurationSec`.
  */

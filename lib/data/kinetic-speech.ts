@@ -43,6 +43,7 @@ export {
   getAllKineticBeats,
   getKineticSpeechTranscript,
   getKineticSpeechStoryDurationSec,
+  getKineticSpeechEndcardInteractiveSec,
   getKineticSpeechVisualEndSec,
   getKineticSpeechFilmDurationSec,
   getKineticSpeechAudioEndBeat,

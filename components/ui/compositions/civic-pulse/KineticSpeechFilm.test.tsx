@@ -520,7 +520,7 @@ describe('KineticSpeechFilm', () => {
     }
   });
 
-  it('keeps endcard CTA inert and unfocusable until join unlock', () => {
+  it('keeps endcard CTA inert and unfocusable until endcard unlock', () => {
     render(<KineticSpeechFilm />);
     const endcard = document.getElementById('kinetic-endcard');
     const join = document.getElementById('kinetic-fin-join');
@@ -551,12 +551,12 @@ describe('KineticSpeechFilm', () => {
     expect(settled.join('.')).toBe(kineticSpeechCopy.endcard.url);
   });
 
-  it('unlocks Join after roller settle while phase stays playing', async () => {
+  it('unlocks endcard CTAs when endcard appears while phase stays playing', async () => {
     const user = userEvent.setup();
     render(<KineticSpeechFilm />);
     await waitForFilmControls();
 
-    // Timeline build schedules setJoinReady via gsap.call — invoke it without ending film.
+    // Timeline schedules onJoinReady at endcard start; tests also cover audio-clock unlock.
     expect(gsapCallFns.length).toBeGreaterThan(0);
     await act(async () => {
       for (const fn of gsapCallFns) {
@@ -577,6 +577,41 @@ describe('KineticSpeechFilm', () => {
     expect(screen.getByRole('button', { name: kineticSpeechCopy.controls.pause })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: kineticSpeechCopy.controls.replay })).not.toBeInTheDocument();
     expect(document.getElementById('kinetic-control-skip')).toBeNull();
+  });
+
+  it('unlocks endcard CTAs from audio clock during scrub (not only GSAP call)', async () => {
+    const { getKineticSpeechEndcardInteractiveSec } = await import('@/lib/kinetic-speech');
+    render(<KineticSpeechFilm />);
+    await waitForFilmControls();
+
+    const unlockAt = getKineticSpeechEndcardInteractiveSec();
+    expect(unlockAt).toBeGreaterThan(1);
+
+    // Simulate scrub tick: audio past endcard start while still playing
+    const audio = document.getElementById('kinetic-speech-audio') as HTMLAudioElement;
+    Object.defineProperty(audio, 'paused', { configurable: true, get: () => false });
+    Object.defineProperty(audio, 'ended', { configurable: true, get: () => false });
+    Object.defineProperty(audio, 'currentTime', {
+      configurable: true,
+      get: () => unlockAt + 0.05,
+      set: () => undefined,
+    });
+
+    await act(async () => {
+      // Drive a few scrub frames
+      for (let i = 0; i < 3; i += 1) {
+        await new Promise((r) => requestAnimationFrame(() => r(undefined)));
+      }
+    });
+
+    expect(document.getElementById('kinetic-endcard')?.hasAttribute('inert')).toBe(false);
+    expect(document.getElementById('kinetic-endcard-sources-trigger')).toHaveAttribute(
+      'tabindex',
+      '0',
+    );
+    expect(document.getElementById('kinetic-fin-join')).toHaveAttribute('tabindex', '0');
+    // Still playing (not finished)
+    expect(screen.getByRole('button', { name: kineticSpeechCopy.controls.pause })).toBeInTheDocument();
   });
 
   it('pauses audio and freezes visual (no free-run timeline after pause)', async () => {
@@ -687,6 +722,13 @@ describe('KineticSpeechFilm', () => {
       expect(el).toBeTruthy();
       return el!;
     });
+
+    // Portaled to body — must stack above #kinetic-speech-film (z-[100]) or the
+    // panel is invisible behind the full-screen stage.
+    expect(panel.className).toMatch(/z-\[110\]/);
+    expect(document.getElementById('kinetic-speech-film')?.className).toMatch(/z-\[100\]/);
+    // Controls gradient must not steal clicks from Sources (pointer-events-none shell)
+    expect(document.getElementById('kinetic-controls')?.className).toMatch(/pointer-events-none/);
 
     const links = panel.querySelectorAll('a');
     expect(links.length).toBe(KINETIC_ENDCARD_SOURCES.length);
@@ -845,9 +887,15 @@ describe('KineticSpeechFilm', () => {
     expect(screen.queryByText(/The delayed ambulance doesn't care/i)).not.toBeInTheDocument();
     expect(screen.getByText(/Bad governance affects everyone/i)).toBeInTheDocument();
     expect(screen.getByText(/Enough is enough/i)).toBeInTheDocument();
+    // Quality of work: Act 1 shrug + Act 5 pay-off
+    expect(screen.getByText(/Expressway built/i)).toBeInTheDocument();
+    expect(screen.getByText(/Broken by the rains/i)).toBeInTheDocument();
+    expect(screen.getByText(/Infrastructure built/i)).toBeInTheDocument();
+    expect(screen.getByText(/Built to last/i)).toBeInTheDocument();
     // Demand: solo "We want" + rapid list + now pair (not sticky morph lines)
     expect(screen.getByText(/We want/i)).toBeInTheDocument();
     expect(screen.getByText(/development/i)).toBeInTheDocument();
+    expect(screen.getByText(/\bquality\b/i)).toBeInTheDocument();
     expect(screen.getByText(/no corruption/i)).toBeInTheDocument();
     expect(screen.getByText(/accountability/i)).toBeInTheDocument();
     expect(screen.getByText(/Every project/i)).toBeInTheDocument();

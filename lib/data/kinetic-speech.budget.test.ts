@@ -103,11 +103,10 @@ describe('kinetic speech beat-locked budget', () => {
     // Pin layout length so silent story drift fails early (AQI ramp + vip + floods + demand sticky)
     // short a2 spam flood + mid-film project-delays cards; sticky co-plant + cough prefixHold + a6-abki
     // cold-open Chalta pairs: footpath/garbage/rich/poor/dengue/food/flood-cities (+ office/bribe) before VIP/AQI
-    // bridge collapse vignette removed; food + flood-cities pairs; kick-snaps re-settle
-    // Imagine reverse scenes (slightly longer garbage/AQI/project/Every) + a6-change
-    // mid-film project-delays before a2-flood shifts kick-snaps; pin so drift fails early
-    // Lack act cut + Demand rework (We want line + rapid list)
-    expect(layoutKineticSpeech().endBeat).toBe(293);
+    // quality: expressway built/broken + demand "quality" + infrastructure built to last
+    // Lack act cut + Demand rework (We want line + rapid list); a2-stop breath removed for budget
+    // tussles 6→4; a4b-want 7→5; +expressway pair/ch + a5-infra + demand quality word
+    expect(layoutKineticSpeech().endBeat).toBe(302);
     // Visual endcard is short; full film spans to natural track end so music is not cut
     expect(kineticSpeechEndcardHoldSec).toBe(11);
     expect(kineticSpeechVisualTailSec).toBe(0.4);
@@ -138,9 +137,9 @@ describe('kinetic speech beat-locked budget', () => {
       // Heartbeat covers at least the visual endcard window; film still spans to audio end
       // (music tail after visual hold may have no remaining analyzed kicks near 142s).
       expect(kicksToMusicEnd.length).toBeGreaterThanOrEqual(kicksVisualOnly.length);
-      // HARD BUDGET WALL (Imagine reverse scenes @ endBeat 298):
+      // HARD BUDGET WALL (quality beats @ endBeat 302):
       // endcard still has a kick pulse window on the music tail.
-      expect(kicksToMusicEnd.length).toBeGreaterThanOrEqual(12);
+      expect(kicksToMusicEnd.length).toBeGreaterThanOrEqual(10);
       // Last pulse lands before audio duration (exclusive end of range)
       const lastKick = kicksToMusicEnd[kicksToMusicEnd.length - 1]!;
       expect(atBeat(lastKick)).toBeLessThan(kineticSpeechAudioDurationSec);
@@ -243,6 +242,8 @@ describe('kinetic speech beat-locked budget', () => {
     expect(ids).not.toContain('a1-no');
     expect(ids).toContain('a1-food');
     expect(ids).toContain('a1-flood-cities');
+    expect(ids).toContain('a1-expressway');
+    expect(ids).toContain('a1-expressway-ch');
     expect(ids).toContain('a1-office');
     expect(ids).toContain('a1-office-ch');
     expect(ids).not.toContain('a3-why');
@@ -266,6 +267,7 @@ describe('kinetic speech beat-locked budget', () => {
     expect(ids).toContain('a5-garbage');
     expect(ids).toContain('a5-aqi');
     expect(ids).toContain('a5-project');
+    expect(ids).toContain('a5-infra');
     expect(ids).toContain('a5-every');
     expect(ids).toContain('a5-public');
     expect(ids).toContain('a5-honest');
@@ -328,7 +330,7 @@ describe('kinetic speech beat-locked budget', () => {
     }
   });
 
-  it('cold-open Chalta pairs: footpath / garbage / rich / poor / dengue / food / flood-cities before office and VIP', () => {
+  it('cold-open Chalta pairs: footpath / garbage / rich / poor / dengue / food / flood-cities / expressway before office and VIP', () => {
     const ids = getAllKineticBeats().map((b) => b.id);
     const footpath = ids.indexOf('a1-p1');
     const garbage = ids.indexOf('a1-p2');
@@ -337,6 +339,8 @@ describe('kinetic speech beat-locked budget', () => {
     const dengue = ids.indexOf('a1-dengue');
     const food = ids.indexOf('a1-food');
     const floodCities = ids.indexOf('a1-flood-cities');
+    const expressway = ids.indexOf('a1-expressway');
+    const expresswayCh = ids.indexOf('a1-expressway-ch');
     const office = ids.indexOf('a1-office');
     const bribe = ids.indexOf('a1-p4');
     const vip = ids.indexOf('a1-vip-ambulance');
@@ -348,9 +352,23 @@ describe('kinetic speech beat-locked budget', () => {
     expect(dengue).toBeGreaterThan(poor);
     expect(food).toBeGreaterThan(dengue);
     expect(floodCities).toBeGreaterThan(food);
-    expect(office).toBeGreaterThan(floodCities);
+    expect(expressway).toBeGreaterThan(floodCities);
+    expect(expresswayCh).toBe(expressway + 1);
+    expect(office).toBeGreaterThan(expresswayCh);
     expect(bribe).toBeGreaterThan(office);
     expect(vip).toBeGreaterThan(bribe);
+
+    const expresswayBeat = getAllKineticBeats().find((b) => b.id === 'a1-expressway');
+    expect(expresswayBeat && expresswayBeat.kind === 'sticky-pair').toBe(true);
+    if (expresswayBeat && expresswayBeat.kind === 'sticky-pair') {
+      expect(expresswayBeat.fixed).toBe('Expressway built.');
+      expect(expresswayBeat.steps.map((s) => s.text)).toEqual(['Broken by the rains.']);
+      expect(expresswayBeat.steps[0]?.hold).toBe(2);
+    }
+    const expresswayChBeat = getAllKineticBeats().find((b) => b.id === 'a1-expressway-ch');
+    expect(
+      expresswayChBeat && expresswayChBeat.kind === 'line' && expresswayChBeat.text,
+    ).toBe('Chalta Hai.');
 
     const byId = Object.fromEntries(getAllKineticBeats().map((b) => [b.id, b]));
     const expectPair = (id: string, lead: string, holdLead: number) => {
@@ -424,18 +442,25 @@ describe('kinetic speech beat-locked budget', () => {
       (beat) => beat.kind === 'line' && beat.id === 'a6-action',
     );
     expect(action && action.kind === 'line' && action.text).toBe('It is time for action.');
+    if (action && action.kind === 'line') {
+      expect(action.hold).toBe(holdFor('It is time for action.', 'thesis'));
+    }
     const build = getAllKineticBeats().find(
       (beat) => beat.kind === 'line' && beat.id === 'a6-build',
     );
     expect(build && build.kind === 'line' && build.text).toBe("Let's build a");
+    if (build && build.kind === 'line') {
+      expect(build.hold).toBe(holdFor("Let's build a", 'body'));
+    }
   });
 
-  it('Imagine act is lived reverse scenes + Every sticky + Public/Honest/On time (not jargon stack)', () => {
+  it('Imagine act is lived reverse scenes + infra quality + Every sticky + Public/Honest/On time (not jargon stack)', () => {
     const ids = getAllKineticBeats().map((b) => b.id);
     const open = ids.indexOf('a5-open');
     const garbage = ids.indexOf('a5-garbage');
     const aqi = ids.indexOf('a5-aqi');
     const project = ids.indexOf('a5-project');
+    const infra = ids.indexOf('a5-infra');
     const every = ids.indexOf('a5-every');
     const publicId = ids.indexOf('a5-public');
     const honest = ids.indexOf('a5-honest');
@@ -446,7 +471,8 @@ describe('kinetic speech beat-locked budget', () => {
     expect(garbage).toBe(open + 1);
     expect(aqi).toBe(garbage + 1);
     expect(project).toBe(aqi + 1);
-    expect(every).toBe(project + 1);
+    expect(infra).toBe(project + 1);
+    expect(every).toBe(infra + 1);
     expect(publicId).toBe(every + 1);
     expect(honest).toBe(publicId + 1);
     expect(onTime).toBe(honest + 1);
@@ -507,6 +533,18 @@ describe('kinetic speech beat-locked budget', () => {
       expect(beatDurationBeats(projectBeat)).toBe(9);
     }
 
+    const infraBeat = byId['a5-infra'];
+    expect(infraBeat?.kind).toBe('pair');
+    if (infraBeat?.kind === 'pair') {
+      expect(infraBeat.lead).toBe('Infrastructure built.');
+      expect(infraBeat.hit).toBe('Built to last.');
+      expect(infraBeat.leadRole).toBe('body');
+      expect(infraBeat.hitRole).toBe('close');
+      expect(infraBeat.wide).toBe(true);
+      expect(infraBeat.holdLead).toBe(b(2));
+      expect(infraBeat.holdHit).toBe(b(2));
+    }
+
     const everyBeat = byId['a5-every'];
     expect(everyBeat?.kind).toBe('sticky');
     if (everyBeat?.kind === 'sticky') {
@@ -547,6 +585,8 @@ describe('kinetic speech beat-locked budget', () => {
     expect(transcript).toMatch(/Project finished\./);
     expect(transcript).toMatch(/Accountability set\./);
     expect(transcript).toMatch(/Updated monthly\./);
+    expect(transcript).toMatch(/Infrastructure built\./);
+    expect(transcript).toMatch(/Built to last\./);
     expect(transcript).toMatch(/Public\./);
     expect(transcript).toMatch(/Honest\./);
     expect(transcript).toMatch(/On time\./);
@@ -574,7 +614,7 @@ describe('kinetic speech beat-locked budget', () => {
     expect(ids).not.toContain('a4-lack-hit');
     expect(ids).not.toContain('a4-breath');
     expect(ids).not.toContain('a4b-breath');
-    // Replaced sticky morph with solo We want + rapid three words
+    // Replaced sticky morph with solo We want + rapid four words (incl. quality)
     expect(ids).not.toContain('a4b-dev');
     expect(ids).not.toContain('a4b-gov');
     expect(ids).not.toContain('a4b-account');
@@ -589,7 +629,7 @@ describe('kinetic speech beat-locked budget', () => {
       expect(enoughBeat.motion).toBe('hardcut');
       expect(enoughBeat.heartbeat).toBe(true);
       expect(enoughBeat.wide).toBe(true);
-      expect(enoughBeat.hold).toBe(b(7));
+      expect(enoughBeat.hold).toBe(b(5));
       expect(enoughBeat.role !== 'slam' && enoughBeat.role !== 'slam-xl').toBe(true);
     }
 
@@ -608,6 +648,7 @@ describe('kinetic speech beat-locked budget', () => {
     if (wantListBeat?.kind === 'rapid') {
       expect(wantListBeat.words).toEqual([
         'development',
+        'quality',
         'no corruption',
         'accountability',
       ]);
@@ -921,14 +962,15 @@ describe('kinetic speech beat-locked budget', () => {
     if (lr && lr.kind === 'slide-pair') {
       expect(lr.tussle).toBe(true);
       expect(lr.axis ?? 'x').toBe('x');
-      expect(lr.hold).toBeGreaterThanOrEqual(6);
+      // Shortened for budget (was 6) while keeping readable tussle rhythm
+      expect(lr.hold).toBe(b(4));
       expect(lr.left).toBe('Left.');
       expect(lr.right).toBe('Right.');
     }
     if (ns && ns.kind === 'slide-pair') {
       expect(ns.tussle).toBe(true);
       expect(ns.axis).toBe('y');
-      expect(ns.hold).toBeGreaterThanOrEqual(6);
+      expect(ns.hold).toBe(b(4));
       expect(ns.left).toBe('North.');
       expect(ns.right).toBe('South.');
     }
