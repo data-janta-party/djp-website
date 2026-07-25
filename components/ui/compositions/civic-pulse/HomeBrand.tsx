@@ -3,7 +3,6 @@
 import Link from 'next/link';
 
 import { useLocale } from '@/hooks/useLocale';
-import { useStorySnapWheel } from '@/hooks/useStorySnapWheel';
 import { cn } from '@/lib/utils/index';
 
 export interface HomeBrandProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -13,14 +12,11 @@ export interface HomeBrandProps extends React.HTMLAttributes<HTMLDivElement> {
 /**
  * Homepage: two full-viewport brand panels + digital speech CTA.
  * Copy sits in .story-snap-inset so it clears the sticky navbar.
- * Content band is .story-snap-panel-content; panel end-slack lives below it.
- * Scroll snap lifecycle (`html.story-snap`) is owned by `useStorySnapWheel`.
+ * Content band is .story-snap-panel-content. Uses normal document scroll.
  */
 export function HomeBrand({ className }: HomeBrandProps) {
   const { messages } = useLocale();
   const copy = messages.home;
-
-  useStorySnapWheel(true);
 
   return (
     <section

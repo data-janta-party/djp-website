@@ -126,58 +126,26 @@ body {
 }
 
 /*
- * One scroll intent → one full-viewport panel (gear / spring).
- * useStorySnapWheel owns commit: wheel threshold + touch distance/velocity.
- * Light touch drags spring back; only past threshold advances to the next hole.
- * CSS snap is a no-JS fallback; the hook sets scroll-snap-type: none while active.
- *
- * End slack: black runway below content so partial drags have room before commit.
- * Content lives in .story-snap-panel-content (first 100svh); slack follows.
+ * Home story sections — normal document scroll (no gear / snap / end-slack).
+ * Brand panels stay ~full viewport; volunteer sizes to content.
+ * --story-nav-offset clears the sticky civic navbar (h-16).
  */
-html.story-snap {
-  /* Sticky civic navbar is h-16 (4rem) */
+:root {
   --story-nav-offset: 4rem;
-  /* Mobile-first: runway under tall content (e.g. Join cards) before next panel */
-  --story-snap-end-slack: 36svh;
-  /* Fallback only — hook disables this for spring control */
-  scroll-snap-type: y mandatory;
-  scroll-behavior: auto;
-  overscroll-behavior-y: none;
-  background: #000000;
-}
-
-@media (min-width: 768px) {
-  html.story-snap {
-    /* Desktop wheel already has a threshold; keep a shorter runway */
-    --story-snap-end-slack: 12svh;
-  }
-}
-
-html.story-snap,
-html.story-snap body {
-  background: #000000;
-  color: #f5f5f5;
 }
 
 /*
- * Outer snap target: full-bleed under sticky nav (black shows through the bar).
- * Height = viewport content band + end slack. Do not put content padding here —
- * Tailwind utilities were overriding it. Put layout on .story-snap-panel-content.
+ * Full-bleed section under sticky nav (black shows through the bar).
+ * Do not put content padding here — put layout on .story-snap-panel-content.
  */
 .story-snap-panel {
-  scroll-snap-align: start;
-  scroll-snap-stop: always;
-  scroll-margin-top: 0;
   background-color: #000000;
   box-sizing: border-box;
-  /* border-box: padding is inside min-height, so short panels stay one band + slack */
-  min-height: calc(100svh + var(--story-snap-end-slack));
-  padding-bottom: var(--story-snap-end-slack);
+  min-height: 100svh;
 }
 
 /*
- * First-viewport content band. Keeps copy centered/aligned within 100svh so
- * end-slack does not shift content down when the panel grows taller.
+ * Content band: keeps brand copy centered/aligned within ~one viewport.
  */
 .story-snap-panel-content {
   box-sizing: border-box;
@@ -186,16 +154,12 @@ html.story-snap body {
 }
 
 .story-snap-volunteer {
-  scroll-snap-align: start;
-  scroll-snap-stop: normal;
   box-sizing: border-box;
-  min-height: calc(100svh + var(--story-snap-end-slack));
   display: flex;
   align-items: flex-start;
   justify-content: center;
   background-color: #000000;
-  /* Extra runway past the form before footer free-scroll */
-  padding-bottom: var(--story-snap-end-slack);
+  padding-bottom: 2rem;
 }
 
 /*
@@ -210,14 +174,8 @@ html.story-snap body {
 }
 
 /* Hash / nav “Volunteer” — land so the form header is below the bar */
-html.story-snap #volunteer {
+#volunteer {
   scroll-margin-top: calc(var(--story-nav-offset) + 1rem);
-}
-
-/* Footer is never a snap target — free document flow after volunteer */
-html.story-snap #civic-pulse-footer {
-  scroll-snap-align: none;
-  scroll-snap-stop: normal;
 }
 
 /* Join headline — rotating adjective crossfade + width morph */
@@ -308,10 +266,6 @@ html.story-snap #civic-pulse-footer {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  html.story-snap {
-    scroll-snap-type: y proximity;
-  }
-
   @keyframes join-word-in {
     from,
     to {
