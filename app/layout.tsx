@@ -29,18 +29,12 @@ export default function RootLayout({
   return (
     <html id="root-html" lang="en" suppressHydrationWarning>
       <head id="tpl-app-layout-head">
-        <script
-          id="tpl-app-layout-locale-bootstrap"
-          dangerouslySetInnerHTML={{
-            __html: `(function(){try{var l=localStorage.getItem('locale');if(l==='en'||l==='hi'){document.documentElement.lang=l;}}catch(e){}})();`,
-          }}
-        />
-        <script
-          id="tpl-app-layout-analytics-consent-bootstrap"
-          dangerouslySetInnerHTML={{
-            __html: ANALYTICS_CONSENT_INIT_SCRIPT,
-          }}
-        />
+        <script id="tpl-app-layout-locale-bootstrap">
+          {`(function(){try{var l=localStorage.getItem('locale');if(l==='en'||l==='hi'){document.documentElement.lang=l;}}catch(e){}})();`}
+        </script>
+        <script id="tpl-app-layout-analytics-consent-bootstrap">
+          {ANALYTICS_CONSENT_INIT_SCRIPT}
+        </script>
       </head>
       <body
         id="root-body"
